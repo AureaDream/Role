@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我的 · OC人设工坊</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/theme.css">
+</head>
+<body data-page="profile">
+  <nav class="navbar navbar-expand-lg bg-white border-bottom">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="../index.html">OC Workshop</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="../index.html">首页</a></li>
+          <li class="nav-item"><a class="nav-link" href="workshop.html">工作台</a></li>
+          <li class="nav-item"><a class="nav-link active" href="profile.html">我的</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="flowing-gold-line"></div>
+
+  <main class="container my-4">
+    <div class="card mb-3">
+      <div class="card-header">我的 OC 库</div>
+      <div class="card-body">
+        <div id="myOcGrid" class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3"></div>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header">故事集</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col">
+            <div class="card h-100"><div class="card-body"><div class="h6">雨夜与失恋</div><p class="text-muted mb-2">灯影之间的重逢，像一场未完的梦。</p><div class="d-flex gap-2"><button class="btn btn-primary btn-sm">预览</button><button class="btn btn-outline-secondary btn-sm">归档</button></div></div></div>
+          </div>
+          <div class="col">
+            <div class="card h-100"><div class="card-body"><div class="h6">影之篇章</div><p class="text-muted mb-2">当影子学会说话，记忆也开始游走。</p><div class="d-flex gap-2"><button class="btn btn-primary btn-sm">预览</button><button class="btn btn-outline-secondary btn-sm">归档</button></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">联动申请审批</div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead><tr><th>申请方</th><th>目标OC</th><th>时间</th><th>状态</th><th>操作</th></tr></thead>
+            <tbody id="reqTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

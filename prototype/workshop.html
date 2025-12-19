@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workshop · OC人设工坊</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css">
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-plus/dist/index.full.min.js"></script>
+</head>
+<body>
+  <div id="app" class="content-wrap">
+    <el-tabs v-model="activeTab">
+      <el-tab-pane label="创建OC" name="create">
+        <el-form :model="form" label-width="100px" style="background:#fff;border-radius:12px;padding:16px;">
+          <el-collapse v-model="collapse">
+            <el-collapse-item title="基本资料" name="base">
+              <el-row :gutter="12">
+                <el-col :xs="24" :sm="12"><el-form-item label="姓名"><el-input v-model="form.name" placeholder="请输入姓名"/></el-form-item></el-col>
+                <el-col :xs="24" :sm="12"><el-form-item label="性别"><el-select v-model="form.gender" placeholder="请选择"><el-option label="男" value="男"/><el-option label="女" value="女"/><el-option label="其他" value="其他"/></el-select></el-form-item></el-col>
+                <el-col :xs="24" :sm="12"><el-form-item label="年龄"><el-input v-model="form.age" type="number" placeholder="年龄"/></el-form-item></el-col>
+                <el-col :xs="24" :sm="12"><el-form-item label="种族"><el-input v-model="form.race" placeholder="例如 人类/猫耳族"/></el-form-item></el-col>
+                <el-col :xs="24" :sm="12"><el-form-item label="职业"><el-input v-model="form.job" placeholder="例如 游侠/诗人"/></el-form-item></el-col>
+              </el-row>
+            </el-collapse-item>
+            <el-collapse-item title="外貌" name="look">
+              <el-form-item label="头像"><el-upload action="#" list-type="picture-card" :auto-upload="false" :on-preview="handlePreview" :on-remove="handleRemove"><el-icon><Plus/></el-icon></el-upload></el-form-item>
+              <el-form-item label="外貌描写"><el-input type="textarea" :rows="4" v-model="form.appearance" placeholder="输入外貌特征"/></el-form-item>
+            </el-collapse-item>
+            <el-collapse-item title="背景" name="bg">
+              <el-form-item label="背景故事">
+                <el-input type="textarea" :rows="4" v-model="form.background" placeholder="输入背景故事" @focus="openFocus=true"/>
+              </el-form-item>
+            </el-collapse-item>
+            <el-collapse-item title="自定义" name="custom">
+              <el-form-item label="新增标签">
+                <div style="display:flex;gap:8px;">
+                  <el-input v-model="tagKey" placeholder="标签键，如 MBTI" style="max-width:180px;"/>
+                  <el-input v-model="tagVal" placeholder="标签值，如 INFJ" style="max-width:180px;"/>
+                  <el-button type="primary" @click="addTag">添加</el-button>
+                </div>
+              </el-form-item>
+              <div class="caps" style="margin-top:8px;">
+                <el-tag v-for="(t,i) in form.tags" :key="i" closable @close="removeTag(i)">{{ t.k }}: {{ t.v }}</el-tag>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+        </el-form>
+        <div class="fab">
+          <el-button @click="save" type="success">保存</el-button>
+          <el-button @click="polish" type="warning">AI润色</el-button>
+          <el-button @click="dice" type="primary">随机骰子</el-button>
+          <el-button @click="preview" type="info">预览</el-button>
+        </div>
+        <el-dialog v-model="openFocus" title="沉浸编辑" custom-class="full-dialog">
+          <el-input type="textarea" v-model="form.background" :rows="20" placeholder="在此专注编辑背景故事"/>
+          <template #footer>
+            <el-button @click="openFocus=false">关闭</el-button>
+          </template>
+        </el-dialog>
+      </el-tab-pane>
+
+      <el-tab-pane label="故事生成器" name="story">
+        <el-card shadow="hover" style="background:#fff;">
+          <div class="card-body">
+            <el-row :gutter="12">
+              <el-col :xs="24" :sm="12">
+                <el-form-item label="主角A">
+                  <el-select v-model="selectedA" filterable placeholder="选择我的OC">
+                    <el-option v-for="o in myOCs" :key="o.id" :label="o.name" :value="o.id" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :xs="24" :sm="12">
+                <el-form-item label="配角B">
+                  <el-select v-model="selectedB" filterable placeholder="选择OC">
+                    <el-option v-for="o in allOCs" :key="o.id" :label="o.name" :value="o.id" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="关键词">
+              <el-input v-model="keywords" placeholder="例如 雨夜, 失恋" />
+            </el-form-item>
+            <el-button type="primary" @click="generate">生成故事</el-button>
+          </div>
+        </el-card>
+        <el-card v-if="generated" style="margin-top:12px;background:#fff;">
+          <div class="card-header">生成结果</div>
+          <div class="card-body"><pre style="white-space:pre-wrap;">{{ generated }}</pre></div>
+        </el-card>
+      </el-tab-pane>
+    </el-tabs>
+  </div>
+
+  <script>
+    const { createApp, ref, reactive } = Vue
+    const { ElMessage } = ElementPlus
+    createApp({
+      setup(){
+        const activeTab = ref('create')
+        const collapse = ref(['base'])
+        const form = reactive({ name:'', gender:'', age:'', race:'', job:'', appearance:'', background:'', tags:[] })
+        const tagKey = ref('')
+        const tagVal = ref('')
+        const openFocus = ref(false)
+        const myOCs = ref([
+          { id:1, name:'林克' },{ id:2, name:'朝雾' },{ id:3, name:'弥夜' }
+        ])
+        const borrowedOCs = ref([
+          { id:101, name:'白岚' },{ id:102, name:'黑曜' }
+        ])
+        const allOCs = ref([...myOCs.value, ...borrowedOCs.value])
+        const selectedA = ref()
+        const selectedB = ref()
+        const keywords = ref('')
+        const generated = ref('')
+        const addTag = () => {
+          if(!tagKey.value || !tagVal.value) return
+          form.tags.push({ k: tagKey.value, v: tagVal.value })
+          tagKey.value=''; tagVal.value=''
+        }
+        const removeTag = (i) => { form.tags.splice(i,1) }
+        const dice = () => {
+          if(!form.name) form.name = '林克'
+          if(!form.gender) form.gender = '男'
+          if(!form.age) form.age = '22'
+          if(!form.race) form.race = '人类'
+          if(!form.job) form.job = '游侠'
+          if(!form.appearance) form.appearance = '高瘦身形，灰蓝披风，眼神冷静。'
+          if(!form.background) form.background = '来自雨夜之城的游侠，行走于巷陌之间，只与风为伴。'
+          if(form.tags.length===0) form.tags = [{k:'MBTI',v:'INFJ'},{k:'DND阵营',v:'混乱中立'}]
+          ElMessage.success('已为空白字段填充示例')
+        }
+        const save = () => { ElMessage.success('已保存到本地原型数据') }
+        const polish = () => { ElMessage.info('AI润色在原型中为占位') }
+        const preview = () => { ElMessage.info('预览卡片生成为占位') }
+        const generate = () => {
+          if(!selectedA.value || !selectedB.value){ ElMessage.warning('请选择主角A与配角B'); return }
+          const a = allOCs.value.find(x=>x.id===selectedA.value)
+          const b = allOCs.value.find(x=>x.id===selectedB.value)
+          const k = keywords.value || '雨夜, 失恋'
+          generated.value = `${a.name} 与 ${b.name} 于灯影交错的街口重逢。\n\n雨夜裹挟着未干的情绪，他们以极轻的语气谈论 ${k}，像在擦拭一面覆了灰的镜。\n\n当风停在屋檐，旧日的伤口只剩下温热。`
+        }
+        const handlePreview = () => {}
+        const handleRemove = () => {}
+        return { activeTab, collapse, form, tagKey, tagVal, addTag, removeTag, dice, save, polish, preview, openFocus, myOCs, borrowedOCs, allOCs, selectedA, selectedB, keywords, generated, generate, handlePreview, handleRemove }
+      }
+    }).use(ElementPlus).mount('#app')
+  </script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+:root {
+  --bs-primary: #FFD700;
+  --bs-body-bg: #ffffff;
+  --gold-shadow: rgba(255, 215, 0, 0.25);
+  --text-dark: #18191c;
+  --text-gray: #61666d;
+}
+
+body {
+  background: var(--bs-body-bg);
+  color: var(--text-dark);
+  font-family: Inter, system-ui, Segoe UI, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typography Overrides */
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
+  color: var(--text-dark);
+}
+
+.text-muted { color: var(--text-gray) !important; }
+
+/* Flowing Gold Line */
+.flowing-gold-line {
+  height: 2px;
+  width: 100%;
+  background: linear-gradient(90deg, #FFD700, #ffeaa7, #FFD700);
+  background-size: 200% 100%;
+  animation: flowingGold 3s linear infinite;
+}
+
+@keyframes flowingGold {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Hero Section */
+.hero {
+  min-height: 160px;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(800px 320px at 0% 0%, rgba(255, 215, 0, 0.15), transparent),
+    radial-gradient(800px 320px at 100% 0%, rgba(255, 215, 0, 0.15), transparent);
+  font-weight: 800; letter-spacing: .5px;
+}
+
+/* Card Styles - Bilibili Style */
+.card {
+  border: 1px solid rgba(0, 0, 0, .05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  background: #ffffff;
+  border-radius: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px var(--gold-shadow);
+}
+
+/* Caps/Badges */
+.caps { display: flex; flex-wrap: wrap; gap: 8px; }
+.cap {
+  display: inline-flex; align-items: center; padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 215, 0, 0.15);
+  color: #0b1b3f; font-size: 12px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+/* Inputs & Form */
+.form-control:focus, .form-select:focus {
+  border-color: #FFD700;
+  box-shadow: 0 0 0 0.25rem rgba(255, 215, 0, 0.25);
+}
+
+.gold-divider {
+  border: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #FFD700, transparent);
+  margin: 1.5rem 0;
+  opacity: 0.6;
+}
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(135deg, #FFD700, #ffc800);
+  border: none;
+  color: #0b1b3f;
+  font-weight: 600;
+  box-shadow: 0 4px 10px rgba(255, 215, 0, 0.3);
+  transition: all 0.3s ease;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #ffe033, #ffd033);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(255, 215, 0, 0.4);
+  color: #0b1b3f;
+}
+
+.btn-outline-primary {
+  color: #b39700; border-color: #FFD700;
+}
+.btn-outline-primary:hover {
+  background-color: #FFD700; border-color: #FFD700; color: #0b1b3f;
+}
+
+/* Floating Action Button (FAB) */
+.fab-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 1050;
+  padding: 8px 16px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+/* Parchment Box for AI Results */
+.parchment-box {
+  background: #fffdf5;
+  border: 1px solid #eaddcf;
+  border-radius: 8px;
+  padding: 1.5rem;
+  position: relative;
+  box-shadow: inset 0 0 20px rgba(255, 215, 0, 0.05);
+}
+.parchment-box::before {
+  content: '';
+  position: absolute;
+  top: 4px; bottom: 4px; left: 4px; right: 4px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+/* Animations */
+.loading-halo {
+  width: 40px; height: 40px;
+  border: 3px solid rgba(255, 215, 0, 0.2);
+  border-top-color: #FFD700;
+  border-radius: 50%;
+  animation: spin 1s infinite linear;
+  margin: 20px auto;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+.fade-in-text {
+  animation: fadeIn 1.5s ease-out forwards;
+  opacity: 0;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Navbar */
+.navbar-nav .nav-link.active { color: #b39700 !important; font-weight: bold; position: relative; }
+.navbar-nav .nav-link.active::after {
+  content: ''; position: absolute; bottom: 0; left: 10%; width: 80%; height: 2px;
+  background: #FFD700; border-radius: 2px;
+}

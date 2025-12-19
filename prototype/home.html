@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home · OC人设工坊</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css">
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-plus/dist/index.full.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <el-container>
+      <el-header height="160px" class="hero">
+        <div>OC人设工坊 · 角色深度创作 + AI演绎 + 社交联动</div>
+      </el-header>
+      <el-main>
+        <div class="content-wrap">
+          <el-card shadow="hover" style="margin-bottom:16px;">
+            <div class="card-header">热门 OC 推荐</div>
+            <div class="card-body">
+              <el-carousel height="220px" indicator-position="outside">
+                <el-carousel-item v-for="item in popularOCs" :key="item.id">
+                  <div style="display:flex;gap:16px;align-items:center;height:220px;">
+                    <img :src="item.avatar" style="width:180px;height:180px;object-fit:cover;border-radius:12px;"/>
+                    <div>
+                      <div style="font-size:20px;font-weight:700;">{{ item.name }}</div>
+                      <div class="caps" style="margin-top:8px;">
+                        <span class="cap">{{ item.gender }}</span>
+                        <span class="cap">{{ item.age }}岁</span>
+                        <span class="cap">{{ item.race }}</span>
+                        <span class="cap">{{ item.job }}</span>
+                      </div>
+                      <div style="margin-top:8px;color:#666;">{{ item.brief }}</div>
+                    </div>
+                  </div>
+                </el-carousel-item>
+              </el-carousel>
+            </div>
+          </el-card>
+
+          <el-card shadow="hover">
+            <div class="card-header">广场瀑布流</div>
+            <div class="card-body">
+              <div class="card-grid">
+                <el-card v-for="o in squareOCs" :key="o.id" shadow="always" class="card">
+                  <img :src="o.avatar" style="width:100%;height:140px;object-fit:cover;"/>
+                  <div class="card-body">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                      <div style="font-weight:600;">{{ o.name }}</div>
+                      <el-tag type="success">公开</el-tag>
+                    </div>
+                    <div class="caps" style="margin:8px 0;">
+                      <span class="cap">{{ o.gender }}</span>
+                      <span class="cap">{{ o.age }}岁</span>
+                      <span class="cap">{{ o.job }}</span>
+                    </div>
+                    <div style="color:#666;min-height:40px;">{{ o.brief }}</div>
+                    <div style="display:flex;gap:8px;margin-top:8px;">
+                      <el-button size="small" type="primary">点赞 {{ o.likes }}</el-button>
+                      <el-button size="small">评论 {{ o.comments }}</el-button>
+                    </div>
+                  </div>
+                </el-card>
+              </div>
+            </div>
+          </el-card>
+        </div>
+      </el-main>
+    </el-container>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue
+    createApp({
+      setup(){
+        const popularOCs = ref([
+          { id:1, name:'林克', gender:'男', age:22, race:'人类', job:'游侠', avatar:'https://picsum.photos/seed/link/300/300', brief:'沉默寡言的游侠，独自穿行于雨夜之城。' },
+          { id:2, name:'朝雾', gender:'女', age:19, race:'猫耳族', job:'吟游诗人', avatar:'https://picsum.photos/seed/asagiri/300/300', brief:'在繁华的广场轻唱故事，温柔而坚定。' },
+          { id:3, name:'弥夜', gender:'女', age:24, race:'暗裔', job:'影术师', avatar:'https://picsum.photos/seed/miya/300/300', brief:'操纵影子与记忆，游走于现实的缝隙。' }
+        ])
+        const squareOCs = ref([
+          { id:11, name:'白岚', gender:'女', age:20, job:'占星师', avatar:'https://picsum.photos/seed/bailan/400/300', brief:'星象的指引从不欺骗她。', likes:132, comments:18 },
+          { id:12, name:'黑曜', gender:'男', age:27, job:'佣兵', avatar:'https://picsum.photos/seed/heiyao/400/300', brief:'硬朗冷峻，但不乏温柔。', likes:203, comments:25 },
+          { id:13, name:'璃珞', gender:'女', age:23, job:'炼金术士', avatar:'https://picsum.photos/seed/liluo/400/300', brief:'瓶中流光，是她的心事。', likes:178, comments:12 },
+          { id:14, name:'青衿', gender:'男', age:21, job:'学者', avatar:'https://picsum.photos/seed/qingjin/400/300', brief:'在雨夜与失恋中找到了诗。', likes:94, comments:9 }
+        ])
+        return { popularOCs, squareOCs }
+      }
+    }).use(ElementPlus).mount('#app')
+  </script>
+</body>
+</html>

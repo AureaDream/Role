@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OC人设工坊 - 原型预览</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css">
+  <style>
+    :root { --bg:#ffffff; --panel:#ffffff; --text:#0b1b3f; --accent:#c5eefb; }
+    html,body { margin:0; padding:0; background:#ffffff; color:var(--text); font-family:Inter,system-ui,Segoe UI,Helvetica,Arial,sans-serif; }
+    .page-title { padding:20px; font-weight:700; letter-spacing:.5px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(480px,1fr)); gap:16px; padding:16px; }
+    .panel { background:var(--panel); border-radius:16px; box-shadow:0 10px 24px rgba(0,0,0,.08); overflow:hidden; border:1px solid rgba(0,0,0,.06); }
+    .panel-header { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:linear-gradient(90deg,rgba(197,238,251,.15),rgba(197,238,251,.05)); }
+    .panel-title { font-size:16px; font-weight:600; }
+    .panel-sub { font-size:12px; opacity:.8; }
+    .frame-wrap { background:#fff; height:1000px; }
+    .frame { width:100%; height:100%; border:0; background:#fff; }
+    @media (max-width:520px){ .grid{ grid-template-columns:1fr; } .frame-wrap{ height:800px; } }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-plus/dist/index.full.min.js"></script>
+  <script>
+    const title = document.title
+  </script>
+  <link rel="stylesheet" href="assets/styles.css">
+  </head>
+<body>
+  <div class="page-title">OC人设工坊 · 页面总览</div>
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Home</div>
+        <div class="panel-sub">首页与广场</div>
+      </div>
+      <div class="frame-wrap">
+        <iframe class="frame" src="home.html"></iframe>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Workshop</div>
+        <div class="panel-sub">创建OC与故事生成</div>
+      </div>
+      <div class="frame-wrap">
+        <iframe class="frame" src="workshop.html"></iframe>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Profile</div>
+        <div class="panel-sub">我的OC库与通知</div>
+      </div>
+      <div class="frame-wrap">
+        <iframe class="frame" src="profile.html"></iframe>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Detail</div>
+        <div class="panel-sub">OC详情与互动</div>
+      </div>
+      <div class="frame-wrap">
+        <iframe class="frame" src="detail.html"></iframe>
+      </div>
+    </div>
+  </div>
+  </body>
+</html>

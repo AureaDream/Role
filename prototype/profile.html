@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile · OC人设工坊</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css">
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-plus/dist/index.full.min.js"></script>
+</head>
+<body>
+  <div id="app" class="content-wrap">
+    <el-row :gutter="16">
+      <el-col :xs="24" :md="12">
+        <el-card shadow="hover" style="background:#fff;">
+          <div class="card-header">我的 OC 库</div>
+          <div class="card-body">
+            <div class="card-grid">
+              <el-card v-for="o in myOCs" :key="o.id" class="card" shadow="always">
+                <img :src="o.avatar" style="width:100%;height:120px;object-fit:cover;"/>
+                <div class="card-body">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <div style="font-weight:600;">{{ o.name }}</div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <span style="font-size:12px;">{{ o.privacy ? '私密' : '公开' }}</span>
+                      <el-switch v-model="o.privacy" />
+                    </div>
+                  </div>
+                  <div class="caps" style="margin-top:8px;">
+                    <span class="cap">{{ o.gender }}</span>
+                    <span class="cap">{{ o.age }}岁</span>
+                    <span class="cap">{{ o.job }}</span>
+                  </div>
+                </div>
+              </el-card>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :xs="24" :md="12">
+        <el-card shadow="hover" style="background:#fff;">
+          <div class="card-header">故事集</div>
+          <div class="card-body">
+            <div class="card-grid">
+              <el-card v-for="s in stories" :key="s.id" class="card" shadow="hover">
+                <div class="card-header">{{ s.title }}</div>
+                <div class="card-body" style="color:#666;min-height:80px;">{{ s.brief }}</div>
+                <div class="card-body" style="display:flex;gap:8px;">
+                  <el-button size="small" type="primary">预览</el-button>
+                  <el-button size="small" type="info">归档</el-button>
+                </div>
+              </el-card>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <el-card shadow="hover" style="margin-top:16px;background:#fff;">
+      <div class="card-header">联动申请审批</div>
+      <div class="card-body">
+        <el-table :data="requests" style="width:100%">
+          <el-table-column prop="from" label="申请方" width="160" />
+          <el-table-column prop="oc" label="目标OC" width="160" />
+          <el-table-column prop="time" label="时间" width="180" />
+          <el-table-column label="状态">
+            <template #default="scope">
+              <el-tag :type="scope.row.status==='待审' ? 'warning' : scope.row.status==='通过' ? 'success' : 'danger'">{{ scope.row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="220">
+            <template #default="scope">
+              <el-button size="small" type="success" @click="approve(scope.row)" :disabled="scope.row.status!=='待审'">批准</el-button>
+              <el-button size="small" type="danger" @click="reject(scope.row)" :disabled="scope.row.status!=='待审'">拒绝</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </el-card>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue
+    const { ElMessage } = ElementPlus
+    createApp({
+      setup(){
+        const myOCs = ref([
+          { id:1, name:'林克', gender:'男', age:22, job:'游侠', avatar:'https://picsum.photos/seed/link/400/300', privacy:true },
+          { id:2, name:'朝雾', gender:'女', age:19, job:'诗人', avatar:'https://picsum.photos/seed/asagiri/400/300', privacy:false }
+        ])
+        const stories = ref([
+          { id:11, title:'雨夜与失恋', brief:'灯影之间的重逢，像一场未完的梦。' },
+          { id:12, title:'影之篇章', brief:'当影子学会说话，记忆也开始游走。' }
+        ])
+        const requests = ref([
+          { id:101, from:'用户A', oc:'白岚', time:'2025-12-04 14:30', status:'待审' },
+          { id:102, from:'用户B', oc:'黑曜', time:'2025-12-04 15:10', status:'通过' }
+        ])
+        const approve = (row) => { if(row.status!=='待审') return; row.status='通过'; ElMessage.success('已批准联动') }
+        const reject = (row) => { if(row.status!=='待审') return; row.status='拒绝'; ElMessage.error('已拒绝联动') }
+        return { myOCs, stories, requests, approve, reject }
+      }
+    }).use(ElementPlus).mount('#app')
+  </script>
+</body>
+</html>

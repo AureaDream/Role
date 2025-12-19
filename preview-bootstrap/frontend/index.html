@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>首页 · OC人设工坊</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/theme.css">
+  <script>
+    // 登录态检查：如果没有 Token，直接跳转到登录页
+    if (!localStorage.getItem('token')) {
+      window.location.href = 'pages/login.html';
+    }
+  </script>
+</head>
+<body data-page="home">
+  <nav class="navbar navbar-expand-lg bg-white border-bottom">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="index.html">OC Workshop</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link active" href="index.html">首页</a></li>
+          <li class="nav-item"><a class="nav-link" href="pages/workshop.html">工作台</a></li>
+          <li class="nav-item"><a class="nav-link" href="pages/profile.html">我的</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="flowing-gold-line"></div>
+
+  <section class="hero">
+    <div class="container text-center py-4">
+      <h1 class="h4">角色深度创作 · AI演绎 · 许可联动</h1>
+    </div>
+  </section>
+
+  <main class="container my-4">
+    <div class="card mb-3">
+      <div class="card-header">热门 OC 推荐</div>
+      <div class="card-body">
+        <div id="popularCarousel" class="carousel slide" data-bs-ride="carousel">
+          <div class="carousel-inner"></div>
+          <button class="carousel-control-prev" type="button" data-bs-target="#popularCarousel" data-bs-slide="prev">
+            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">上一项</span>
+          </button>
+          <button class="carousel-control-next" type="button" data-bs-target="#popularCarousel" data-bs-slide="next">
+            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="visually-hidden">下一项</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">广场瀑布流</div>
+      <div class="card-body">
+        <div id="squareGrid" class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-3"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>工作台 · OC人设工坊</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/theme.css">
+</head>
+<body data-page="workshop">
+  <nav class="navbar navbar-expand-lg bg-white border-bottom">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="../index.html">OC Workshop</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="../index.html">首页</a></li>
+          <li class="nav-item"><a class="nav-link active" href="workshop.html">工作台</a></li>
+          <li class="nav-item"><a class="nav-link" href="profile.html">我的</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="flowing-gold-line"></div>
+
+  <main class="container my-4">
+    <ul class="nav nav-pills mb-3" id="pills" role="tablist">
+      <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#create" type="button" role="tab">创建OC</button></li>
+      <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#story" type="button" role="tab">故事生成器</button></li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="create" role="tabpanel">
+        <div class="accordion" id="ocAccordion">
+          <!-- 基础信息 -->
+          <div class="accordion-item border-0 mb-3 shadow-sm rounded-3">
+            <h2 class="accordion-header">
+              <button class="accordion-button fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true">
+                1. 基础信息
+              </button>
+            </h2>
+            <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#ocAccordion">
+              <div class="accordion-body">
+                <div class="row g-3">
+                  <div class="col-sm-6"><label class="form-label text-muted">姓名</label><input id="charName" class="form-control" placeholder="请输入姓名"></div>
+                  <div class="col-sm-6"><label class="form-label text-muted">性别</label><select id="charGender" class="form-select"><option>男</option><option>女</option><option>其他</option></select></div>
+                  <div class="col-sm-6"><label class="form-label text-muted">年龄</label><input id="charAge" class="form-control" type="number" placeholder="年龄"></div>
+                  <div class="col-sm-6"><label class="form-label text-muted">种族</label><input id="charRace" class="form-control" placeholder="例如 人类/猫耳族"></div>
+                  <div class="col-sm-6"><label class="form-label text-muted">职业</label><input id="charJob" class="form-control" placeholder="例如 游侠/诗人"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- 深度设定 -->
+          <div class="accordion-item border-0 mb-3 shadow-sm rounded-3">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo">
+                2. 深度设定
+              </button>
+            </h2>
+            <div id="collapseTwo" class="accordion-collapse collapse" data-bs-parent="#ocAccordion">
+              <div class="accordion-body">
+                <div class="row g-3">
+                   <div class="col-12"><label class="form-label text-muted">外貌描写</label><textarea id="charAppearance" class="form-control" rows="3" placeholder="输入外貌特征"></textarea></div>
+                   <div class="col-12">
+                     <label class="form-label text-muted">背景故事</label>
+                     <textarea id="charBio" class="form-control" rows="3" placeholder="输入背景故事" data-bs-toggle="modal" data-bs-target="#focusModal"></textarea>
+                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- 标签系统 -->
+          <div class="accordion-item border-0 mb-3 shadow-sm rounded-3">
+            <h2 class="accordion-header">
+              <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree">
+                3. 标签系统
+              </button>
+            </h2>
+            <div id="collapseThree" class="accordion-collapse collapse" data-bs-parent="#ocAccordion">
+              <div class="accordion-body">
+                <div class="row g-2 align-items-end">
+                  <div class="col-auto"><label class="form-label text-muted">标签键</label><input id="tagKey" class="form-control" placeholder="MBTI"></div>
+                  <div class="col-auto"><label class="form-label text-muted">标签值</label><input id="tagVal" class="form-control" placeholder="INFJ"></div>
+                  <div class="col-auto"><button id="addTagBtn" class="btn btn-primary">添加</button></div>
+                </div>
+                <div id="tagList" class="caps mt-3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Mobile FAB -->
+        <div class="fab-container">
+           <button class="btn btn-primary rounded-pill px-4 shadow-lg">保存设定</button>
+           <button class="btn btn-warning rounded-pill px-4 shadow-lg text-white">AI 润色</button>
+        </div>
+        
+        <!-- Desktop Actions (Hidden on mobile via CSS if needed, but keeping for now as secondary) -->
+        <div class="d-none d-md-flex gap-2 justify-content-end mt-4">
+           <button id="diceBtn" class="btn btn-outline-primary">🎲 随机骰子</button>
+           <button class="btn btn-outline-secondary">预览卡片</button>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="story" role="tabpanel">
+        <div class="card">
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-sm-6"><label class="form-label">主角A</label><select id="selectA" class="form-select"></select></div>
+              <div class="col-sm-6"><label class="form-label">配角B</label><select id="selectB" class="form-select"></select></div>
+              <div class="col-12"><label class="form-label">关键词</label><input id="keywords" class="form-control" placeholder="例如 雨夜, 失恋"></div>
+            </div>
+            <button id="genBtn" class="btn btn-primary mt-3 w-100 py-2">✨ 织梦生成</button>
+            
+            <div id="loadingArea" class="text-center my-5 d-none">
+               <div class="loading-halo"></div>
+               <div class="text-muted mt-2 small">AI 正在编织梦境...</div>
+            </div>
+            
+            <div id="resultCard" class="parchment-box mt-4 d-none">
+              <div class="h5 fw-bold mb-3" style="color:#b39700">❖ 梦境篇章</div>
+              <div id="resultPre" class="fade-in-text" style="white-space:pre-wrap; line-height:1.8;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="modal fade" id="focusModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+      <div class="modal-content" style="background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);">
+        <div class="modal-header border-0"><h5 class="modal-title fw-bold">沉浸编辑</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+        <div class="modal-body"><textarea class="form-control border-0 h-100 fs-5" style="background:transparent; resize:none;" placeholder="在此专注编辑背景故事..."></textarea></div>
+        <div class="modal-footer border-0"><button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">完成</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

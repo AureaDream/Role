@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detail · OC人设工坊</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus/dist/index.css">
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-plus/dist/index.full.min.js"></script>
+</head>
+<body>
+  <div id="app" class="content-wrap">
+    <el-card shadow="hover" style="background:#fff;">
+      <div style="display:flex;gap:16px;align-items:center;">
+        <img :src="oc.avatar" style="width:140px;height:140px;object-fit:cover;border-radius:12px;"/>
+        <div>
+          <div style="font-size:22px;font-weight:700;">{{ oc.name }}</div>
+          <div class="caps" style="margin-top:8px;">
+            <span class="cap">{{ oc.gender }}</span>
+            <span class="cap">{{ oc.age }}岁</span>
+            <span class="cap">{{ oc.race }}</span>
+            <span class="cap">{{ oc.job }}</span>
+          </div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px;">
+          <el-button type="primary">导出图片</el-button>
+          <el-button type="info">导出PDF</el-button>
+        </div>
+      </div>
+    </el-card>
+
+    <el-card shadow="hover" style="margin-top:12px;background:#fff;">
+      <div class="card-header">详细设定</div>
+      <div class="card-body">
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="外貌">{{ oc.appearance }}</el-descriptions-item>
+          <el-descriptions-item label="性格">{{ oc.traits }}</el-descriptions-item>
+          <el-descriptions-item label="背景故事">{{ oc.background }}</el-descriptions-item>
+          <el-descriptions-item label="标签">
+            <div class="caps">
+              <span v-for="t in oc.tags" :key="t.k" class="cap">{{ t.k }}: {{ t.v }}</span>
+            </div>
+          </el-descriptions-item>
+        </el-descriptions>
+      </div>
+    </el-card>
+
+    <el-card shadow="hover" style="margin-top:12px;background:#fff;">
+      <div class="card-header">互动区</div>
+      <div class="card-body">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
+          <el-input v-model="comment" placeholder="留下你的评论" />
+          <el-button type="primary" @click="post">发布</el-button>
+          <el-button type="success" @click="apply">申请联动</el-button>
+        </div>
+        <el-empty v-if="comments.length===0" description="暂无评论" />
+        <el-timeline v-else>
+          <el-timeline-item v-for="c in comments" :key="c.id" :timestamp="c.time">
+            {{ c.text }}
+          </el-timeline-item>
+        </el-timeline>
+      </div>
+    </el-card>
+  </div>
+
+  <script>
+    const { createApp, ref } = Vue
+    const { ElMessageBox, ElMessage } = ElementPlus
+    createApp({
+      setup(){
+        const oc = ref({ id:1, name:'林克', gender:'男', age:22, race:'人类', job:'游侠', avatar:'https://picsum.photos/seed/link/400/300',
+          appearance:'高瘦身形，灰蓝披风，眼神冷静。', traits:'沉默寡言、克制、守信。', background:'来自雨夜之城的游侠，行走于巷陌之间，只与风为伴。', tags:[{k:'MBTI',v:'INFJ'},{k:'DND阵营',v:'混乱中立'}] })
+        const comment = ref('')
+        const comments = ref([])
+        const post = () => { if(!comment.value) return; comments.value.unshift({ id: Date.now(), text: comment.value, time: new Date().toLocaleString() }); comment.value=''; }
+        const apply = async () => {
+          try {
+            await ElMessageBox.confirm('是否申请与该 OC 进行联动？','申请联动',{ type:'success' })
+            ElMessage.success('已提交申请，等待对方审批')
+          } catch(e){ ElMessage.info('已取消申请') }
+        }
+        return { oc, comment, comments, post, apply }
+      }
+    }).use(ElementPlus).mount('#app')
+  </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>详情 · OC人设工坊</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/theme.css">
+</head>
+<body data-page="detail">
+  <nav class="navbar navbar-expand-lg bg-white border-bottom">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="../index.html">OC Workshop</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="../index.html">首页</a></li>
+          <li class="nav-item"><a class="nav-link" href="workshop.html">工作台</a></li>
+          <li class="nav-item"><a class="nav-link" href="profile.html">我的</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="flowing-gold-line"></div>
+
+  <main class="container my-4">
+    <div class="card">
+      <div class="card-body d-flex gap-3 align-items-center">
+        <img id="avatar" class="rounded" style="width:140px;height:140px;object-fit:cover;" />
+        <div>
+          <div id="name" class="h5 fw-bold"></div>
+          <div id="props" class="caps mt-2"></div>
+        </div>
+        <div class="ms-auto d-flex gap-2">
+          <button class="btn btn-primary">导出图片</button>
+          <button class="btn btn-outline-secondary">导出PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">详细设定</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-12"><div class="fw-semibold">外貌</div><p id="appearance" class="text-muted mb-0"></p></div>
+          <div class="col-12"><div class="fw-semibold">性格</div><p id="traits" class="text-muted mb-0"></p></div>
+          <div class="col-12"><div class="fw-semibold">背景故事</div><p id="background" class="text-muted mb-0"></p></div>
+          <div class="col-12"><div class="fw-semibold">标签</div><div id="tags" class="caps mt-2"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">互动区</div>
+      <div class="card-body">
+        <div class="d-flex gap-2 mb-2">
+          <input id="commentInput" class="form-control" placeholder="留下你的评论" />
+          <button id="postBtn" class="btn btn-primary">发布</button>
+          <button id="applyBtn" class="btn btn-success">申请联动</button>
+        </div>
+        <ul id="commentList" class="list-group"></ul>
+      </div>
+    </div>
+  </main>
+
+  <div class="modal fade" id="applyModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">申请联动</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">是否申请与该 OC 进行联动？</div>
+        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-success" data-bs-dismiss="modal">提交申请</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

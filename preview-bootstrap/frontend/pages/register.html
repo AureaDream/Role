@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>注册 · 流金梦坊</title>
+  <!-- 引入 Bootstrap CSS -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+  <!-- 引入主题 CSS (用于部分通用变量，本页面主要使用自定义样式) -->
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  
+  <style>
+    /* --- 1. 背景设计: 深紫色渐变 + 流金特效 --- */
+    body {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-family: 'Inter', system-ui, sans-serif;
+      
+      /* 背景色: 深紫色渐变 (可调整 hex 值改变色调) */
+      background: linear-gradient(135deg, #1a0b2e 0%, #361d5e 100%);
+      position: relative;
+    }
+
+    /* 流动金沙特效 (使用伪元素模拟) */
+    body::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      /* 使用径向渐变模拟散落的金粉 */
+      background-image: 
+        radial-gradient(circle at center, rgba(255, 215, 0, 0.1) 0%, transparent 1%),
+        radial-gradient(circle at 20% 80%, rgba(255, 215, 0, 0.05) 0%, transparent 1%);
+      background-size: 100px 100px;
+      opacity: 0.6;
+      animation: sandFlow 60s linear infinite; /* 金沙流动动画 */
+      z-index: 0;
+    }
+
+    /* 金沙流动关键帧 */
+    @keyframes sandFlow {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* --- 2. 登录卡片设计: 磨砂玻璃 + 金边 --- */
+    .login-card {
+      position: relative;
+      z-index: 10; /* 确保在背景之上 */
+      width: 100%;
+      max-width: 400px; /* 卡片最大宽度 */
+      padding: 2.5rem;
+      border-radius: 16px;
+      
+      /* 玻璃拟态 (Glassmorphism) */
+      background: rgba(255, 255, 255, 0.05); /* 极低透明度的白色背景 */
+      backdrop-filter: blur(20px); /* 毛玻璃模糊程度 */
+      -webkit-backdrop-filter: blur(20px);
+      
+      /* 边框: 淡淡的金边 */
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+    }
+
+    /* --- 3. 品牌标题设计 --- */
+    .brand-title {
+      color: #FFD700; /* 金色字体 */
+      font-family: 'Times New Roman', serif; /* 衬线体 */
+      font-size: 1.8rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 2rem;
+      text-shadow: 0 2px 10px rgba(255, 215, 0, 0.3); /* 文字发光 */
+      letter-spacing: 2px;
+    }
+
+    /* --- 4. 输入框设计 --- */
+    .user-input {
+      background: rgba(0, 0, 0, 0.3); /* 深色半透明背景 */
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff; /* 输入文字颜色 */
+      border-radius: 8px;
+      padding: 12px 15px;
+      margin-bottom: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    /* 输入框聚焦时的金色呼吸灯效果 */
+    .user-input:focus {
+      background: rgba(0, 0, 0, 0.5);
+      border-color: #FFD700;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); /* 金色光晕 */
+      color: #fff;
+      outline: none;
+    }
+
+    /* 修改输入框 placeholder 颜色 */
+    .user-input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    /* --- 5. 按钮设计 --- */
+    .submit-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      /* 按钮渐变色: 金色系 */
+      background: linear-gradient(135deg, #FFD700, #FFA500); 
+      color: #1a0b2e; /* 深色文字对比 */
+      font-weight: bold;
+      font-size: 1rem;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px); /* 悬停上浮 */
+      box-shadow: 0 8px 25px rgba(255, 215, 0, 0.5);
+      background: linear-gradient(135deg, #ffe033, #ffb31a);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    /* 底部链接 */
+    .auth-link {
+      display: block;
+      text-align: center;
+      margin-top: 1.5rem;
+      color: rgba(255, 255, 255, 0.6);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: color 0.3s;
+    }
+
+    .auth-link:hover {
+      color: #FFD700; /* 悬停变金 */
+    }
+
+    /* 响应式调整 */
+    @media (max-width: 576px) {
+      .login-card {
+        margin: 20px;
+        padding: 2rem;
+      }
+    }
+  </style>
+</head>
+<body data-page="register">
+
+  <div class="login-card">
+    <div class="brand-title">流金梦坊·织梦者注册</div>
+    
+    <form id="registerForm">
+      <div class="mb-3">
+        <!-- 用户名输入 -->
+        <input type="text" class="form-control user-input" id="username" placeholder="请输入织梦者代号 (用户名)" required>
+      </div>
+      
+      <div class="mb-3">
+        <!-- 密码输入 -->
+        <input type="password" class="form-control user-input" id="password" placeholder="请输入梦境密钥 (密码)" required>
+      </div>
+      
+      <!-- 注册按钮 -->
+      <button type="submit" class="submit-btn">开启织梦之旅</button>
+      
+      <!-- 登录链接 -->
+      <a href="login.html" class="auth-link">已有账号？返回登录</a>
+    </form>
+  </div>
+
+  <!-- 引入全局 JS (包含登录逻辑) -->
+  <script src="../assets/js/app.js"></script>
+  <!-- 引入独立的 Auth 逻辑 -->
+  <script src="../assets/js/auth.js"></script>
+</body>
+</html>
