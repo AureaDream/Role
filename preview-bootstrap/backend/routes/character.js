@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Character = require('../models/character');
 const jwt = require('jsonwebtoken'); // 引入 JWT 用于鉴权
-const { buildChar } = require('../services/aiService');
+const { buildChar, polishBio, suggestProfile } = require('../services/aiService');
 const { exportDoc, upload } = require('../utils/fileService'); // 引入已配置好的 upload 中间件 (DiskStorage)
 // const multer = require('multer'); // 不再需要单独引入 multer
 const { Op } = require('sequelize');
@@ -216,6 +216,42 @@ router.post('/generate-bio', async (req, res) => {
   }
 });
 
+// --- API: 角色润色 (AI Polish) ---
+router.post('/polish', async (req, res) => {
+  try {
+    const { charContext } = req.body;
+    if (!charContext) {
+      return res.status(400).json({ error: 'Missing character context' });
+    }
+    
+    // 调用 aiService.js 中的 polishBio
+    const polishedText = await polishBio(charContext);
+    
+    res.json({ polishedText });
+  } catch (error) {
+    console.error('润色失败:', error);
+    res.status(500).json({ error: '无法润色文本' });
+  }
+});
+
+// --- API: 智能设定建议 (AI Suggest) ---
+router.post('/suggest', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Missing name' });
+    }
+    
+    // 调用 aiService.js 中的 suggestProfile
+    const aiSuggestion = await suggestProfile(name);
+    
+    res.json({ aiSuggestion });
+  } catch (error) {
+    console.error('建议失败:', error);
+    res.status(500).json({ error: '无法生成建议' });
+  }
+});
+
 // --- API: 导出角色档案 (Export Doc) ---
 // 功能：根据 ID 查找 OC 完整信息，生成 Markdown 文件供用户下载。
 // 作用：让用户可以本地保存自己心爱的角色设定。
@@ -278,29 +314,180 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // --- API: 点赞角色 (Like Character) ---
 // 功能：增加指定 OC 的点赞数。
 // 作用：用户在广场浏览时，点击爱心即可触发，热度越高的角色越容易被推荐。
-router.post('/like/:id', async (req, res) => {
+const { Like, Comment, User } = require('../models');
+
+router.post('/like/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
 
-    // 逻辑：原子操作更新 likes 字段，并发安全
-    // Sequelize increment 方法
+    // 1. 查找角色
     const char = await Character.findByPk(id);
     if (!char) {
       return res.status(404).json({ error: 'Character not found' });
     }
 
-    await char.increment('likes', { by: 1 });
-    // increment 后需要重新 reload 才能获取最新值，或者直接返回 char.likes + 1
+    // 2. 检查点赞状态 (Toggle Logic)
+    const existingLike = await Like.findOne({
+      where: { userId, charId: id }
+    });
+
+    let isLiked = false;
+
+    if (existingLike) {
+      // 如果已点赞，则取消 (Destroy)
+      await existingLike.destroy();
+      // 减少计数 (decrement)
+      if (char.likes > 0) {
+        await char.decrement('likes', { by: 1 });
+      }
+      isLiked = false;
+    } else {
+      // 如果未点赞，则创建 (Create)
+      await Like.create({ userId, charId: id });
+      // 增加计数 (increment)
+      await char.increment('likes', { by: 1 });
+      isLiked = true;
+    }
+
+    // 获取最新计数
     const updatedChar = await char.reload();
 
-    // 反馈：返回最新的点赞数，供前端实时刷新 UI
+    // 反馈：返回最新的点赞数和状态
     res.json({ 
-      message: '点赞成功', 
-      count: updatedChar.likes 
+      success: true,
+      message: isLiked ? '已点赞' : '已取消点赞', 
+      likeCount: updatedChar.likes,
+      isLiked: isLiked
     });
 
   } catch (error) {
     console.error('点赞失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// --- API: 提交评论 (Submit Comment) ---
+router.post('/comment/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: '评论内容不能为空' });
+    }
+
+    const char = await Character.findByPk(id);
+    if (!char) {
+      return res.status(404).json({ error: 'Character not found' });
+    }
+
+    // 创建评论
+    const newComment = await Comment.create({
+      userId,
+      charId: id,
+      content: content.trim()
+    });
+
+    // 返回带有用户信息的评论，方便前端渲染
+    const commentWithUser = await Comment.findByPk(newComment.id, {
+      include: [{ model: User, as: 'author', attributes: ['username', 'id'] }]
+    });
+
+    res.json({
+      success: true,
+      message: '评论成功',
+      data: commentWithUser
+    });
+
+  } catch (error) {
+    console.error('评论失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// --- API: 获取社交数据 (Get Social Info) ---
+// 获取角色的点赞数、评论列表、以及当前用户的点赞状态
+router.get('/:id/social', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 尝试获取当前用户 ID (如果是登录用户)
+    // 注意：这是一个公开接口，但也需要适配登录态来判断 isLiked
+    let currentUserId = null;
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, 'secret_key_123456');
+        currentUserId = decoded.id;
+      } catch (e) { /* Ignore invalid token */ }
+    }
+
+    // 1. 获取角色及点赞数
+    const char = await Character.findByPk(id);
+    if (!char) return res.status(404).json({ error: 'Character not found' });
+
+    // 2. 获取评论列表 (倒序)
+    const commentList = await Comment.findAll({
+      where: { charId: id },
+      include: [{ model: User, as: 'author', attributes: ['username', 'id'] }],
+      order: [['createdAt', 'DESC']]
+    });
+
+    // 3. 判断当前用户是否已点赞
+    let isLiked = false;
+    if (currentUserId) {
+      const like = await Like.findOne({ where: { userId: currentUserId, charId: id } });
+      isLiked = !!like;
+    }
+
+    res.json({
+      likeCount: char.likes,
+      isLiked: isLiked,
+      commentList: commentList
+    });
+
+  } catch (error) {
+    console.error('获取社交数据失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// --- API: 获取角色详情 ---
+// 功能：获取单个角色的详细信息
+// 修复：确保 image 字段返回正确的相对路径
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 排除特殊关键词 (防止与 my, public, add 等路由冲突，虽然 Express 按顺序匹配，但多一层保障)
+    if (['my', 'public', 'add', 'upload', 'generate-bio'].includes(id)) {
+      return res.status(404).json({ error: 'Invalid Character ID' });
+    }
+
+    const char = await Character.findByPk(id);
+    if (!char) {
+      return res.status(404).json({ error: 'Character not found' });
+    }
+
+    // 处理图片路径
+    // 如果数据库只存了文件名 (如 "123.jpg")，补全为 "/uploads/123.jpg"
+    // 如果已经是 "/uploads/..." 或 "http..." 则保持不变
+    let imgUrl = char.image;
+    if (imgUrl && !imgUrl.startsWith('/') && !imgUrl.startsWith('http')) {
+      imgUrl = `/uploads/${imgUrl}`;
+    }
+    
+    // 构造返回数据 (不直接修改数据库实例，而是返回处理后的 JSON)
+    const charData = char.toJSON();
+    charData.image = imgUrl;
+
+    res.json(charData);
+
+  } catch (error) {
+    console.error('获取角色详情失败:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });

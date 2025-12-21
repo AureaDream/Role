@@ -195,14 +195,21 @@ async function likeChar(id, btn) {
         const text = res.story.content;
         const pre = document.querySelector('#resultPre');
         pre.textContent = '';
+        pre.classList.add('typewriter-cursor'); // 添加光标
         
         let i = 0;
         function type() {
           if (i < text.length) {
-            pre.textContent += text.charAt(i);
+            const char = text.charAt(i);
+            // 处理换行符，如果是普通文本容器需要用 <br>，如果是 pre-wrap 则不需要
+            // 这里我们保持 textContent 以利用 white-space: pre-wrap
+            pre.textContent += char;
             i++;
-            setTimeout(type, 20);
+            // 随机打字速度，模拟真实感
+            const delay = Math.random() * 30 + 10;
+            setTimeout(type, delay);
           } else {
+            pre.classList.remove('typewriter-cursor'); // 移除光标
             genBtn.disabled = false;
             genBtn.textContent = '✨ 再次生成';
           }
@@ -344,28 +351,76 @@ async function likeChar(id, btn) {
       });
     }
 
-    // --- 随机骰子逻辑 ---
+    // --- 随机骰子逻辑 (智能升级版) ---
     const diceBtn = document.querySelector('#diceBtn');
-    diceBtn?.addEventListener('click', () => {
-      const races = ['人类', '精灵', '兽人', '龙族', '机械生命', '亡灵'];
-      const jobs = ['战士', '法师', '游侠', '刺客', '牧师', '吟游诗人'];
-      const firstNames = ['亚瑟', '露娜', '凯尔', '艾薇', '索尔', '米娅'];
-      const lastNames = ['风行者', '光辉', '暗影', '铁壁', '星语', '炎魔'];
+    diceBtn?.addEventListener('click', async () => {
+      const nameInput = document.querySelector('#charName');
+      const raceInput = document.querySelector('#charRace');
+      const jobInput = document.querySelector('#charJob');
+      const name = nameInput.value.trim();
+      const race = raceInput.value.trim();
       
-      document.querySelector('#charName').value = `${firstNames[Math.floor(Math.random() * firstNames.length)]}·${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
-      document.querySelector('#charAge').value = Math.floor(Math.random() * 80) + 16;
-      document.querySelector('#charRace').value = races[Math.floor(Math.random() * races.length)];
-      document.querySelector('#charJob').value = jobs[Math.floor(Math.random() * jobs.length)];
-      document.querySelector('#charGender').value = ['男', '女', '其他'][Math.floor(Math.random() * 3)];
+      // 策略选择：如果用户只填了姓名（且种族为空），则触发 AI 智能建议
+      if (name && !race) {
+        try {
+           diceBtn.disabled = true;
+           diceBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 构思中...';
+           
+           const res = await request('/char/suggest', {
+             method: 'POST',
+             body: { name }
+           });
+           
+           const aiSuggestion = res.aiSuggestion;
+           if (aiSuggestion) {
+             if (aiSuggestion.race) raceInput.value = aiSuggestion.race;
+             if (aiSuggestion.job) jobInput.value = aiSuggestion.job;
+             // 可选：如果返回了 personality，尝试添加到标签或提示用户
+             if (aiSuggestion.personality) {
+               // 简单起见，如果当前没有 tags，可以自动添加一个性格标签
+               // 这里仅做 toast 提示或 log
+               console.log('AI Suggested Personality:', aiSuggestion.personality);
+               // 自动加入 Tags
+               currentTags.push({ key: '性格', value: aiSuggestion.personality });
+               renderTags();
+             }
+           }
+        } catch (e) {
+          console.error('Smart Dice Failed:', e);
+          // 降级为随机逻辑
+          applyRandomDice();
+        } finally {
+          diceBtn.disabled = false;
+          diceBtn.innerHTML = '🎲 随机骰子';
+        }
+      } else {
+        // 默认随机逻辑
+        applyRandomDice();
+      }
+      
+      function applyRandomDice() {
+        const races = ['人类', '精灵', '兽人', '龙族', '机械生命', '亡灵'];
+        const jobs = ['战士', '法师', '游侠', '刺客', '牧师', '吟游诗人'];
+        const firstNames = ['亚瑟', '露娜', '凯尔', '艾薇', '索尔', '米娅'];
+        const lastNames = ['风行者', '光辉', '暗影', '铁壁', '星语', '炎魔'];
+        
+        // 仅在空值时填充，避免覆盖用户已输入的内容 (除非是完全随机模式)
+        // 这里保持原逻辑：覆盖式随机
+        document.querySelector('#charName').value = `${firstNames[Math.floor(Math.random() * firstNames.length)]}·${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
+        document.querySelector('#charAge').value = Math.floor(Math.random() * 80) + 16;
+        document.querySelector('#charRace').value = races[Math.floor(Math.random() * races.length)];
+        document.querySelector('#charJob').value = jobs[Math.floor(Math.random() * jobs.length)];
+        document.querySelector('#charGender').value = ['男', '女', '其他'][Math.floor(Math.random() * 3)];
+      }
     });
 
-    // --- AI 润色逻辑 ---
+    // --- AI 润色逻辑 (上下文集成版) ---
     const aiPolishBtn = document.querySelector('#aiPolishBtn');
     aiPolishBtn?.addEventListener('click', async () => {
       const name = document.querySelector('#charName').value;
       const race = document.querySelector('#charRace').value;
       const job = document.querySelector('#charJob').value;
-      const simpleBio = document.querySelector('#charBio').value;
+      const bio = document.querySelector('#charBio').value;
 
       if (!name) return alert('请先输入角色姓名');
 
@@ -373,24 +428,59 @@ async function likeChar(id, btn) {
         aiPolishBtn.disabled = true;
         aiPolishBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 润色中...';
 
-        // 构造关键词
-        const keywords = [race, job, simpleBio].filter(Boolean).join('，');
+        // 尝试从标签中提取性格
+        const personalityTag = currentTags.find(t => t.key === '性格' || t.key === 'Personality');
+        const personality = personalityTag ? personalityTag.value : '';
+
+        // 构建上下文对象
+        const charContext = {
+          name,
+          race,
+          job,
+          bio,
+          personality
+        };
         
-        const res = await request('/char/generate-bio', {
+        // 调用新的润色接口
+        const res = await request('/char/polish', {
           method: 'POST',
-          body: { name, keywords }
+          body: { charContext }
         });
 
-        if (res.appearance) document.querySelector('#charAppearance').value = res.appearance;
-        if (res.bio) document.querySelector('#charBio').value = res.bio;
-        
-        // 如果正在沉浸编辑中，也要同步
-        if (focusBioInput) focusBioInput.value = res.bio;
+        if (res.polishedText) {
+          const polished = res.polishedText;
+          const target = document.querySelector('#charBio');
+          const focusTarget = document.getElementById('focusBioInput');
+          
+          // 简单的逐字显现动画 (不阻塞 UI)
+          let currentText = '';
+          let i = 0;
+          const speed = 15;
+          
+          target.value = ''; // 清空
+          if(focusTarget) focusTarget.value = '';
+
+          function typeWriter() {
+            if (i < polished.length) {
+              currentText += polished.charAt(i);
+              target.value = currentText;
+              if (focusTarget) focusTarget.value = currentText;
+              i++;
+              requestAnimationFrame(() => setTimeout(typeWriter, speed));
+            } else {
+               aiPolishBtn.disabled = false;
+               aiPolishBtn.textContent = 'AI 润色';
+            }
+          }
+          typeWriter();
+          
+          // 不要在 finally 里立即重置按钮，交给动画结束回调
+          return; 
+        }
 
       } catch (error) {
         console.error('AI Polish Failed:', error);
         alert('AI 润色失败: ' + error.message);
-      } finally {
         aiPolishBtn.disabled = false;
         aiPolishBtn.textContent = 'AI 润色';
       }
@@ -449,21 +539,29 @@ async function initDetail() {
   if (!id) return;
 
   try {
-    // 复用 export 接口或单独写一个 detail 接口，这里暂时用 public 列表筛选模拟
-    // 建议后端增加 GET /api/char/:id 接口
-    // 临时方案：前端 fetch list 过滤
-    const list = await request('/char/public'); 
-    const oc = list.find(x => String(x.id) === id);
+    // 调用新的详情接口
+    const oc = await request(`/char/${id}`);
     
     if (!oc) throw new Error('角色不存在');
 
     // 填充数据
     document.querySelector('#name').textContent = oc.name;
-    document.querySelector('#avatar').src = getImgUrl(oc.avatar);
-    document.querySelector('#appearance').textContent = oc.appearance || '暂无';
-    document.querySelector('#background').textContent = oc.bio || '暂无'; // 注意后端字段是 bio
     
-    // 渲染 Tags (保持与首页一致的金色风格)
+    // 图片处理：
+    // 1. 使用 correct 字段名 'image' (原代码误用了 avatar)
+    // 2. 添加加载失败时的金色占位图
+    const imgEl = document.querySelector('#avatar');
+    imgEl.src = getImgUrl(oc.image);
+    imgEl.onerror = function() {
+      // 金色调默认占位图 (使用 Placehold.co)
+      this.src = 'https://placehold.co/400/f0e68c/ffffff?text=Image+N/A';
+      this.onerror = null; // 防止无限循环
+    };
+
+    document.querySelector('#appearance').textContent = oc.appearance || '暂无';
+    document.querySelector('#background').textContent = oc.description || oc.bio || '暂无'; // 后端字段可能是 description
+    
+    // 渲染 Tags
     const tagWrap = document.querySelector('#tags');
     if (tagWrap && Array.isArray(oc.tags)) {
       tagWrap.innerHTML = oc.tags.map(t => 
@@ -474,8 +572,99 @@ async function initDetail() {
     }
 
   } catch (error) {
-    alert('加载详情失败');
+    console.error('Detail Load Error:', error);
+    alert('加载详情失败: ' + error.message);
   }
+
+  // --- 社交功能初始化 (Social Features) ---
+  const likeBtn = document.querySelector('#likeBtn');
+  const likeCountEl = document.querySelector('#likeCount');
+  const commentInput = document.querySelector('#commentInput');
+  const postBtn = document.querySelector('#postBtn');
+  const commentListEl = document.querySelector('#commentList');
+
+  // 1. 获取社交数据
+  async function loadSocial() {
+    try {
+      const res = await request(`/char/${id}/social`);
+      
+      // 更新点赞状态
+      likeCountEl.textContent = res.likeCount;
+      if (res.isLiked) {
+        likeBtn.classList.replace('btn-outline-danger', 'btn-danger');
+        likeBtn.innerHTML = `<i class="bi bi-heart-fill"></i> <span id="likeCount">${res.likeCount}</span>`;
+      } else {
+        likeBtn.classList.replace('btn-danger', 'btn-outline-danger');
+        likeBtn.innerHTML = `<i class="bi bi-heart"></i> <span id="likeCount">${res.likeCount}</span>`;
+      }
+
+      // 渲染评论列表
+      renderComments(res.commentList);
+
+    } catch (e) {
+      console.warn('Load Social Failed:', e);
+    }
+  }
+
+  function renderComments(list) {
+    if (!list || list.length === 0) {
+      commentListEl.innerHTML = '<li class="list-group-item text-center text-muted border-0">暂无评论，快来抢沙发吧~</li>';
+      return;
+    }
+    commentListEl.innerHTML = list.map(c => `
+      <li class="list-group-item border-0 border-bottom">
+        <div class="d-flex justify-content-between">
+          <span class="fw-bold text-primary small">${c.author?.username || '神秘访客'}</span>
+          <span class="text-muted small">${new Date(c.createdAt).toLocaleDateString()}</span>
+        </div>
+        <p class="mb-1 mt-1">${c.content}</p>
+      </li>
+    `).join('');
+  }
+
+  // 2. 点赞事件
+  likeBtn?.addEventListener('click', async () => {
+    try {
+      const res = await request(`/char/like/${id}`, { method: 'POST' });
+      
+      // 切换按钮样式
+      if (res.isLiked) {
+        likeBtn.classList.replace('btn-outline-danger', 'btn-danger');
+        likeBtn.innerHTML = `<i class="bi bi-heart-fill"></i> <span id="likeCount">${res.likeCount}</span>`;
+      } else {
+        likeBtn.classList.replace('btn-danger', 'btn-outline-danger');
+        likeBtn.innerHTML = `<i class="bi bi-heart"></i> <span id="likeCount">${res.likeCount}</span>`;
+      }
+    } catch (e) {
+      if (e.message.includes('401')) alert('请先登录再点赞');
+    }
+  });
+
+  // 3. 发布评论
+  postBtn?.addEventListener('click', async () => {
+    const content = commentInput.value.trim();
+    if (!content) return alert('请输入评论内容');
+
+    try {
+      postBtn.disabled = true;
+      const res = await request(`/char/comment/${id}`, {
+        method: 'POST',
+        body: { content }
+      });
+      
+      commentInput.value = ''; // 清空输入框
+      // 重新加载社交数据 (或者手动插入 DOM)
+      loadSocial();
+      
+    } catch (e) {
+      alert('评论失败: ' + e.message);
+    } finally {
+      postBtn.disabled = false;
+    }
+  });
+
+  // 初始加载
+  loadSocial();
 }
 
 // 4. 登录页 (login.html) - 已迁移至 auth.js

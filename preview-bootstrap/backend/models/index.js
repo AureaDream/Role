@@ -2,6 +2,8 @@ const User = require('./user');
 const Character = require('./character');
 const Story = require('./story');
 const LinkRequest = require('./linkrequest');
+const Like = require('./like');
+const Comment = require('./comment');
 
 // --- 模型关联 (Associations) ---
 
@@ -62,10 +64,23 @@ LinkRequest.belongsTo(User, { foreignKey: 'receiverId', as: 'receiver' });
 Character.hasMany(LinkRequest, { foreignKey: 'targetCharId', as: 'linkRequests' });
 LinkRequest.belongsTo(Character, { foreignKey: 'targetCharId', as: 'targetChar' });
 
+// 4. 点赞关联 (Like)
+User.belongsToMany(Character, { through: Like, foreignKey: 'userId', as: 'LikedChars' });
+Character.belongsToMany(User, { through: Like, foreignKey: 'charId', as: 'Likers' });
+
+// 5. 评论关联 (Comment)
+User.hasMany(Comment, { foreignKey: 'userId', as: 'comments' });
+Comment.belongsTo(User, { foreignKey: 'userId', as: 'author' }); // 别名 author 以便语义清晰
+
+Character.hasMany(Comment, { foreignKey: 'charId', as: 'comments' });
+Comment.belongsTo(Character, { foreignKey: 'charId', as: 'character' });
+
 // 导出所有模型
 module.exports = {
   User,
   Character,
   Story,
-  LinkRequest
+  LinkRequest,
+  Like,
+  Comment
 };

@@ -109,6 +109,69 @@ async function buildChar(inputData) {
 }
 
 /**
+ * 润色背景故事 (AI Polish)
+ * @param {Object} context - 角色上下文 { name, race, job, bio, personality }
+ * @returns {Promise<string>} - 润色后的文本
+ */
+async function polishBio(context) {
+  const { name, race, job, bio, personality } = context;
+  
+  // --- 系统预设 (System Prompt) ---
+  // 核心逻辑：扮演文学导师，对文本进行润色
+  const systemPrompt = `你是一位顶尖的同人小说作家与文学编辑。 任务目标：润色用户提供的角色背景故事。 核心约束： 1. 深度引用设定：请基于该角色的设定（姓名：${name || '未知'}, 职业：${job || '未知'}等）。润色后的内容必须与这些基础属性完美契合，不得产生逻辑冲突。 2. 尊重世界观：基于角色原有的背景框架进行扩充，严禁引入违背原有世界观的现代或异质元素。 3. 文风要求：以小说笔触进行描写，增强画面感、心理描写和氛围渲染，展现专业作家的文采。 4. 字数控制：润色后的内容必须精炼在 500 字以内。`;
+  
+  // --- 用户指令 (User Prompt) ---
+  const userPrompt = `【原始设定】
+  种族：${race || '未知'}
+  性格：${personality || '未知'}
+  
+  【待润色文本】
+  ${bio || '（暂无详细背景，请根据设定创作一段）'}`;
+
+  try {
+    const polishedText = await callAI(systemPrompt, userPrompt);
+    return polishedText;
+  } catch (error) {
+    console.error('Polish Bio Failed:', error);
+    return bio; // 失败则返回原文本，避免清空用户输入
+  }
+}
+
+/**
+ * 智能建议角色设定 (Smart Suggestion)
+ * @param {string} name - 角色姓名
+ * @returns {Promise<Object>} - 建议的设定 { race, job, personality }
+ */
+async function suggestProfile(name) {
+  // --- 系统预设 (System Prompt) ---
+  const systemPrompt = `你是一位角色设定顾问。请根据用户提供的【角色姓名】，推测并建议一个最匹配的种族、职业和性格标签。
+  要求：
+  1. 返回合法的 JSON 对象，不要包含 markdown 代码块。
+  2. JSON 格式：{"race": "...", "job": "...", "personality": "..."}。
+  3. 风格要与姓名契合（例如西方名对应奇幻种族，东方名对应仙侠或现代设定）。`;
+  
+  const userPrompt = `角色姓名：${name}`;
+  
+  try {
+    const aiOutput = await callAI(systemPrompt, userPrompt);
+    
+    // 简单的 JSON 提取逻辑
+    let cleanData = aiOutput.trim();
+    if (cleanData.startsWith('```json')) {
+        cleanData = cleanData.replace(/^```json/, '').replace(/```$/, '');
+    } else if (cleanData.startsWith('```')) {
+        cleanData = cleanData.replace(/^```/, '').replace(/```$/, '');
+    }
+    
+    return JSON.parse(cleanData);
+  } catch (error) {
+    console.error('Suggest Profile Failed:', error);
+    // 兜底建议
+    return { race: 'ERROR', job: 'ERROR', personality: 'ERROR' };
+  }
+}
+
+/**
  * 根据传入的角色列表和场景关键词，生成互动短剧
  * @param {Array} chars - 参与故事的角色列表 (OC Array)
  * @param {string} scene - 场景关键词或简述
@@ -138,22 +201,21 @@ async function writeStory(chars, scene) {
   }).join('\n--------------------\n');
 
   // --- 系统预设 (System Prompt) ---
-  // 设定身份：细腻的同人小说家。
-  // 核心约束：
-  // 1. 严格遵守 Character Context 中的性格和 Tags，严禁 OOC (Out Of Character)。
-  // 2. 互动感：重点描写角色之间的语言、动作和眼神交流。
-  // 3. 篇幅控制：500-1000字。
-  // 4. 风格：‘流金梦幻风格’——文字需如流动的金沙般细腻、璀璨，带有梦境般的朦胧美与宿命感。
   const systemPrompt = `
-    你是一位笔触细腻的同人小说家，擅长捕捉人物间微妙的情感流动和张力。
-    请根据提供的【角色档案】和【场景设定】，创作一篇 500-1000 字的互动短剧。
+    你是一位高产且富有创造力的同人小说作家，擅长细腻的情感描写和宏大的场景构建。 
+    任务目标：
+    根据提供的角色设定，创作一段精彩的独立故事。 
+    核心约束： 
+    1. 角色灵魂注入：深入挖掘角色的性格缺陷、动力和目标 。故事中的台词与行为必须符合该角色的逻辑（In-Character）。 
+    2. 剧情张力：故事需包含起承转合，通过一个具体的事件或冲突来展现角色的特质。 
+    3. 世界观一致性：不得脱离角色原有的时代背景、力量体系和地理环境。 
+    4. 字数与格式：故事长度控制在 2000 字以内。请使用优美的分段排版。
     
     【创作要求】
     1. **拒绝 OOC**：请反复研读角色的性格（personality）和标签（tags，如 MBTI），确保角色的言行逻辑完全符合设定。
     2. **沉浸感**：多用“展示”而非“讲述”的手法，通过微表情、肢体语言和环境烘托来表现角色心理。
     3. **互动性**：如果是多人场景，请平衡各角色的戏份，展现他们之间的化学反应。
-    4. **流金梦幻风格**：
-       - 环境描写：融入光影、星辰、金沙、梦境等意象，营造唯美氛围。
+    4. **风格**：
        - 情感基调：细腻、深邃，略带一丝不可言说的宿命感或浪漫气息。
   `;
 
@@ -178,7 +240,7 @@ async function writeStory(chars, scene) {
     return storyText;
   } catch (error) {
     console.error('Write Story Failed:', error);
-    return '灵感枯竭中... 请稍后再试。';
+    return '连接中断……请求稍后重试。';
   }
 }
 
@@ -198,8 +260,19 @@ async function writeStoryStream(chars, scene, onToken) {
     return `[角色 ${index + 1}] 姓名: ${c.name} 性格: ${c.personality} Tags: ${tagsStr} 外观: ${c.appearance}`;
   }).join('\n');
 
-  const systemPrompt = `你是一位擅长‘流金梦幻风格’的同人小说家。请根据角色档案和场景，创作一篇500字左右的互动短剧。
-  要求：文笔细腻璀璨，如流动的金沙；严禁OOC；多描写光影与心理活动。`;
+  const systemPrompt = `    根据提供的角色设定，创作一段精彩的独立故事。 
+    核心约束： 
+    1. 角色灵魂注入：深入挖掘角色的性格缺陷、动力和目标 。故事中的台词与行为必须符合该角色的逻辑（In-Character）。 
+    2. 剧情张力：故事需包含起承转合，通过一个具体的事件或冲突来展现角色的特质。 
+    3. 世界观一致性：不得脱离角色原有的时代背景、力量体系和地理环境。 
+    4. 字数与格式：故事长度控制在 2000 字以内。请使用优美的分段排版。
+    
+    【创作要求】
+    1. **拒绝 OOC**：请反复研读角色的性格（personality）和标签（tags，如 MBTI），确保角色的言行逻辑完全符合设定。
+    2. **沉浸感**：多用“展示”而非“讲述”的手法，通过微表情、肢体语言和环境烘托来表现角色心理。
+    3. **互动性**：如果是多人场景，请平衡各角色的戏份，展现他们之间的化学反应。
+    4. **风格**：
+       - 情感基调：细腻、深邃，略带一丝不可言说的宿命感或浪漫气息。`;
 
   const userPrompt = `【场景】${scene}\n【角色】${charContext}\n请开始创作：`;
 
@@ -258,4 +331,4 @@ async function writeStoryStream(chars, scene, onToken) {
   }
 }
 
-module.exports = { callAI, buildChar, writeStory, writeStoryStream };
+module.exports = { callAI, buildChar, writeStory, writeStoryStream, polishBio, suggestProfile };
