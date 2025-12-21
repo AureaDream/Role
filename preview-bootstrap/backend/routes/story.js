@@ -62,8 +62,8 @@ router.get('/my', authenticateToken, async (req, res) => {
 
     res.json(stories);
   } catch (error) {
-    console.error('Get My Stories Failed:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('获取我的故事集失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
@@ -156,13 +156,13 @@ router.post('/create', async (req, res) => {
     res.end();
 
   } catch (error) {
-    console.error('Create Story Failed:', error);
+    console.error('生成故事失败:', error);
     // 如果已经开始流式传输，则发送 SSE 格式的错误
     if (res.headersSent) {
-      res.write(`data: ${JSON.stringify({ error: 'Internal Server Error' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: '服务器内部错误' })}\n\n`);
       res.end();
     } else {
-      res.status(500).json({ error: 'Internal Server Error' });
+      res.status(500).json({ error: '服务器内部错误' });
     }
   }
 });
@@ -218,8 +218,49 @@ router.post('/generate', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Generate Story Failed:', error);
-    res.status(500).json({ error: 'Failed to generate story.' });
+    console.error('织梦生成失败:', error);
+    res.status(500).json({ error: '无法生成故事' });
+  }
+});
+
+// --- API: 归档故事 (Archive Story) ---
+// 功能：将指定故事的状态标记为 'archived'，不再在常规列表中显示。
+router.patch('/:id/archive', authenticateToken, async (req, res) => {
+  try {
+    const storyId = req.params.id;
+    const userId = req.user.id;
+
+    // 1. 查找目标故事
+    const targetStory = await Story.findByPk(storyId, {
+      include: [{
+        model: Character,
+        as: 'participants',
+        attributes: ['userId'] // 仅查询拥有者 ID 用于校验
+      }]
+    });
+
+    if (!targetStory) {
+      return res.status(404).json({ error: 'Story not found.' });
+    }
+
+    // 2. 权限校验 (Permission Check)
+    // 检查当前用户是否拥有该故事中的至少一个角色
+    // (逻辑：只要是参与者之一，就有权归档自己的这份“记忆”)
+    const isParticipant = targetStory.participants.some(char => String(char.userId) === String(userId));
+    
+    if (!isParticipant) {
+      return res.status(403).json({ error: 'Permission denied: You are not a participant of this story.' });
+    }
+
+    // 3. 数据库更新 (Database Update)
+    // 修改状态为 archived
+    const updateResult = await targetStory.update({ status: 'archived' });
+
+    res.json({ success: true, message: '记忆已入册。', data: updateResult });
+
+  } catch (error) {
+    console.error('归档故事失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 

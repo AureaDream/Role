@@ -49,7 +49,7 @@ async function request(endpoint, options = {}) {
     if (data.success === false) throw new Error(data.msg);
     return data;
   } catch (err) {
-    console.error(`API Error [${endpoint}]:`, err);
+    console.error(`API 错误 [${endpoint}]:`, err);
     alert(err.message || '网络请求失败');
     throw err;
   }
@@ -66,11 +66,11 @@ async function login(username, password) {
     // 保存 token 到 localStorage
     if (res.token) {
       localStorage.setItem('token', res.token);
-      console.log('Token saved:', res.token);
+      console.log('已保存Token', res.token);
     }
     return res;
   } catch (err) {
-    console.error('Login error:', err);
+    console.error('Login 错误:', err);
     throw err;
   }
 }

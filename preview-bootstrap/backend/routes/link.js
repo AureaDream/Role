@@ -58,11 +58,11 @@ const checkAuth = async (req, res, next) => {
     }
 
     // 3. 如果既不是自己的，也没有授权，则拦截
-    return res.status(403).json({ error: 'Permission denied. Please request link authorization first.' });
+    return res.status(403).json({ error: '权限被拒绝。请先发起联动申请。' });
 
   } catch (error) {
-    console.error('Auth Check Failed:', error);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    console.error('鉴权检查失败:', error);
+    return res.status(500).json({ error: '服务器内部错误' });
   }
 };
 
@@ -111,11 +111,11 @@ router.post('/request', async (req, res) => {
       status: 'pending'
     });
 
-    res.status(201).json({ message: 'Link request sent successfully', requestId: newRequest.id });
+    res.status(201).json({ message: '联动申请发送成功', requestId: newRequest.id });
 
   } catch (error) {
-    console.error('Send Request Failed:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('发送申请失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
@@ -137,8 +137,8 @@ router.get('/my', authenticateToken, async (req, res) => {
     res.json(requests);
 
   } catch (error) {
-    console.error('Get My Requests Failed:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('获取我的申请失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
@@ -166,8 +166,8 @@ router.get('/requests/:userId', async (req, res) => {
     res.json(requests);
 
   } catch (error) {
-    console.error('Get Requests Failed:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('获取申请列表失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
@@ -197,11 +197,11 @@ router.put('/request/:reqId', async (req, res) => {
     request.status = status;
     await request.save();
 
-    res.json({ message: `Request ${status}`, request });
+    res.json({ message: `申请已${status === 'approved' ? '通过' : '拒绝'}`, request: request });
 
   } catch (error) {
-    console.error('Handle Request Failed:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('处理申请失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 

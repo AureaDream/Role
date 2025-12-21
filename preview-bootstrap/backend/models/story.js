@@ -36,6 +36,12 @@ const Story = sequelize.define('Story', {
     type: DataTypes.STRING(50),
     defaultValue: 'deepseek-v3',
     comment: '使用的AI模型版本'
+  },
+  // --- 状态字段 ---
+  status: {
+    type: DataTypes.STRING(20),
+    defaultValue: 'active',
+    comment: '故事状态 (active: 正常, archived: 已归档)'
   }
 }, {
   tableName: 'stories',

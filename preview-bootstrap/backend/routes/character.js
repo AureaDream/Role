@@ -43,8 +43,8 @@ router.get('/public', async (req, res) => {
 
     res.json(list);
   } catch (error) {
-    console.error('Get Public Chars Failed:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('获取广场角色失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
@@ -60,8 +60,8 @@ router.get('/my', authenticateToken, async (req, res) => {
     });
     res.json(list);
   } catch (error) {
-    console.error('Get My Chars Failed:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('获取我的角色失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
@@ -115,8 +115,13 @@ router.post('/add', authenticateToken, upload.single('image'), async (req, res) 
     res.status(201).json({ success: true, data: newChar });
 
   } catch (error) {
-    console.error('Create Char Failed:', error);
-    res.status(500).json({ success: false, error: 'Internal Server Error' });
+    console.error('创建角色失败:', error);
+    // 增强报错信息：打印 SQL 错误代码和字段
+    if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeDatabaseError') {
+      console.error('SQL Error Code:', error.parent ? error.parent.errno : 'Unknown');
+      console.error('SQL Message:', error.parent ? error.parent.sqlMessage : error.message);
+    }
+    res.status(500).json({ success: false, error: '服务器内部错误，无法创建角色' });
   }
 });
 
@@ -169,11 +174,15 @@ router.put('/update/:id', authenticateToken, upload.single('image'), async (req,
       tags: tags !== undefined ? tags : char.tags,
     });
 
-    res.json({ success: true, message: 'Character updated successfully', data: char });
+    res.json({ success: true, message: '角色更新成功', data: char });
 
   } catch (error) {
-    console.error('Update Char Failed:', error);
-    res.status(500).json({ success: false, error: 'Internal Server Error' });
+    console.error('更新角色失败:', error);
+    if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeDatabaseError') {
+      console.error('SQL Error Code:', error.parent ? error.parent.errno : 'Unknown');
+      console.error('SQL Message:', error.parent ? error.parent.sqlMessage : error.message);
+    }
+    res.status(500).json({ success: false, error: '服务器内部错误，无法更新角色' });
   }
 });
 
@@ -202,8 +211,8 @@ router.post('/generate-bio', async (req, res) => {
     res.json(aiRes);
 
   } catch (error) {
-    console.error('Generate Bio Failed:', error);
-    res.status(500).json({ error: 'Failed to generate character bio' });
+    console.error('生成人设失败:', error);
+    res.status(500).json({ error: '无法生成角色设定' });
   }
 });
 
@@ -236,8 +245,8 @@ router.get('/export/:id', async (req, res) => {
     res.send(fileBuffer);
 
   } catch (error) {
-    console.error('Export Char Failed:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('导出角色失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
@@ -256,13 +265,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     const resUrl = `/uploads/${file.filename}`;
 
     res.json({ 
-      message: 'Upload successful', 
+      message: '图片上传成功', 
       url: resUrl 
     });
 
   } catch (error) {
-    console.error('Upload Failed:', error);
-    res.status(500).json({ error: 'Image upload failed' });
+    console.error('上传图片失败:', error);
+    res.status(500).json({ error: '图片上传失败' });
   }
 });
 
@@ -286,13 +295,13 @@ router.post('/like/:id', async (req, res) => {
 
     // 反馈：返回最新的点赞数，供前端实时刷新 UI
     res.json({ 
-      message: 'Liked successfully', 
+      message: '点赞成功', 
       count: updatedChar.likes 
     });
 
   } catch (error) {
-    console.error('Like Char Failed:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error('点赞失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
   }
 });
 
