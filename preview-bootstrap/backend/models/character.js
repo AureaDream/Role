@@ -11,60 +11,54 @@ const Character = sequelize.define('Character', {
     autoIncrement: true, // 自增主键
     comment: '角色唯一ID'
   },
-  ownerId: {
+  userId: {
     type: DataTypes.INTEGER,
     allowNull: false,
     comment: '关联的用户ID (外键)'
-    // 注意：实际的外键约束通常在模型关联 (Associations) 处定义
   },
   name: {
     type: DataTypes.STRING(100),
     allowNull: false,
     comment: '角色姓名'
   },
+  // --- 用户要求的 description 字段 ---
+  description: {
+    type: DataTypes.TEXT,
+    comment: '角色设定/背景描述'
+  },
+  // --- 用户要求的 image 字段 ---
+  image: {
+    type: DataTypes.STRING(500),
+    defaultValue: '',
+    comment: '角色立绘路径'
+  },
+  // 保留原有字段以兼容 AI 服务
   gender: {
-    type: DataTypes.ENUM('Male', 'Female', 'Non-binary', 'Other'),
+    type: DataTypes.STRING(50),
     defaultValue: 'Other',
     comment: '性别'
   },
   age: {
-    type: DataTypes.STRING(50), // 兼容 "Unknown" 等非数字描述
+    type: DataTypes.STRING(50),
     comment: '年龄描述'
-  },
-  avatar: {
-    type: DataTypes.STRING(500), // 存储图片 URL
-    defaultValue: '',
-    comment: '头像链接'
   },
   intro: {
     type: DataTypes.STRING(255),
     comment: '一句话简介'
   },
-
-  // --- 核心设定 (长文本) ---
   appearance: {
-    type: DataTypes.TEXT, // 使用 TEXT 存储长段落
+    type: DataTypes.TEXT,
     comment: '外貌描写'
   },
   personality: {
     type: DataTypes.TEXT,
     comment: '性格细节'
   },
-  bio: { // 对应之前的 background
-    type: DataTypes.TEXT,
-    comment: '背景故事'
-  },
-
-  // --- 半开放设计：JSON 存储 ---
-  // MySQL 5.7+ 支持原生 JSON 类型，非常适合存储灵活的标签数据
-  // 结构示例: [{"key": "MBTI", "value": "INFP"}, {"key": "种族", "value": "精灵"}]
   tags: {
     type: DataTypes.JSON,
     defaultValue: [],
     comment: '自定义标签 (JSON数组)'
   },
-
-  // --- 状态控制 ---
   isPublic: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

@@ -143,6 +143,7 @@ async function writeStory(chars, scene) {
   // 1. 严格遵守 Character Context 中的性格和 Tags，严禁 OOC (Out Of Character)。
   // 2. 互动感：重点描写角色之间的语言、动作和眼神交流。
   // 3. 篇幅控制：500-1000字。
+  // 4. 风格：‘流金梦幻风格’——文字需如流动的金沙般细腻、璀璨，带有梦境般的朦胧美与宿命感。
   const systemPrompt = `
     你是一位笔触细腻的同人小说家，擅长捕捉人物间微妙的情感流动和张力。
     请根据提供的【角色档案】和【场景设定】，创作一篇 500-1000 字的互动短剧。
@@ -151,7 +152,9 @@ async function writeStory(chars, scene) {
     1. **拒绝 OOC**：请反复研读角色的性格（personality）和标签（tags，如 MBTI），确保角色的言行逻辑完全符合设定。
     2. **沉浸感**：多用“展示”而非“讲述”的手法，通过微表情、肢体语言和环境烘托来表现角色心理。
     3. **互动性**：如果是多人场景，请平衡各角色的戏份，展现他们之间的化学反应。
-    4. **风格**：‘流金梦坊’风格，唯美、生动、富有画面感。
+    4. **流金梦幻风格**：
+       - 环境描写：融入光影、星辰、金沙、梦境等意象，营造唯美氛围。
+       - 情感基调：细腻、深邃，略带一丝不可言说的宿命感或浪漫气息。
   `;
 
   // --- 用户指令 (User Prompt) ---
@@ -167,6 +170,10 @@ async function writeStory(chars, scene) {
   `;
 
   try {
+    // 检查是否需要流式输出 (根据调用方是否传入回调函数)
+    // 注意：这里为了兼容 story.js 的流式改写，我们需要扩展 callAI 或在此处直接处理
+    // 为了保持架构简单，建议 story.js 直接调用 writeStoryStream (下文新增)
+    // 但此处我们先保留非流式兼容，同时暴露流式接口
     const storyText = await callAI(systemPrompt, userPrompt);
     return storyText;
   } catch (error) {
@@ -175,4 +182,80 @@ async function writeStory(chars, scene) {
   }
 }
 
-module.exports = { callAI, buildChar, writeStory };
+/**
+ * 流式生成互动短剧 (Write Story Stream)
+ * @param {Array} chars - 角色列表
+ * @param {string} scene - 场景
+ * @param {Function} onToken - 接收每个 token 的回调 (text) => void
+ * @returns {Promise<string>} - 返回完整文本 (用于最终保存)
+ */
+async function writeStoryStream(chars, scene, onToken) {
+  // 复用 writeStory 中的 Prompt 构建逻辑
+  const charContext = chars.map((c, index) => {
+    const tagsStr = c.tags && c.tags.length > 0 
+      ? c.tags.map(t => `${t.key}: ${t.value}`).join(', ') 
+      : '无特殊标签';
+    return `[角色 ${index + 1}] 姓名: ${c.name} 性格: ${c.personality} Tags: ${tagsStr} 外观: ${c.appearance}`;
+  }).join('\n');
+
+  const systemPrompt = `你是一位擅长‘流金梦幻风格’的同人小说家。请根据角色档案和场景，创作一篇500字左右的互动短剧。
+  要求：文笔细腻璀璨，如流动的金沙；严禁OOC；多描写光影与心理活动。`;
+
+  const userPrompt = `【场景】${scene}\n【角色】${charContext}\n请开始创作：`;
+
+  const apiKey = process.env.DEEPSEEK_KEY;
+  const url = 'https://api.deepseek.com/chat/completions';
+
+  try {
+    const response = await axios.post(url, {
+      model: 'deepseek-chat',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      stream: true, // 开启流式
+      temperature: 1.3
+    }, {
+      headers: { 
+        'Content-Type': 'application/json', 
+        'Authorization': `Bearer ${apiKey}` 
+      },
+      responseType: 'stream' // Axios 接收流
+    });
+
+    return new Promise((resolve, reject) => {
+      let fullText = '';
+      
+      response.data.on('data', (chunk) => {
+        // chunk 是 Buffer，转为 string
+        const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
+        
+        for (const line of lines) {
+          if (line === 'data: [DONE]') continue;
+          if (line.startsWith('data: ')) {
+            try {
+              const jsonStr = line.replace('data: ', '');
+              const json = JSON.parse(jsonStr);
+              const content = json.choices[0].delta.content || '';
+              if (content) {
+                fullText += content;
+                if (onToken) onToken(content);
+              }
+            } catch (e) {
+              console.error('JSON Parse Error in Stream:', e);
+            }
+          }
+        }
+      });
+
+      response.data.on('end', () => resolve(fullText));
+      response.data.on('error', (err) => reject(err));
+    });
+
+  } catch (error) {
+    console.error('Stream Error:', error);
+    throw error;
+  }
+}
+
+module.exports = { callAI, buildChar, writeStory, writeStoryStream };

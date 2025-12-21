@@ -7,6 +7,8 @@ const isProd = process.env.NODE_ENV === 'production';
 // 显式指定 .env 文件路径，确保在不同目录下启动都能正确加载
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const sequelize = require('./config/database'); // 引入 Sequelize 实例
+// 引入所有模型以建立关联 (只需 require 一次即可触发 models/index.js 中的关联逻辑)
+require('./models'); 
 const cors = require('cors');
 
 // 初始化 Express 应用

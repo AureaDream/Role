@@ -40,6 +40,18 @@
             </h2>
             <div id="collapseOne" class="accordion-collapse collapse show" data-bs-parent="#ocAccordion">
               <div class="accordion-body">
+                <!-- 头像上传区域 -->
+                <div class="text-center mb-4">
+                  <div class="position-relative d-inline-block" style="cursor: pointer;" onclick="document.getElementById('charAvatarInput').click()">
+                    <img id="charAvatarPreview" src="https://placehold.co/200?text=Upload" class="rounded-circle border shadow-sm" style="width: 120px; height: 120px; object-fit: cover;">
+                    <input type="file" id="charAvatarInput" class="d-none" accept="image/*">
+                    <div class="position-absolute bottom-0 end-0 bg-white rounded-circle border shadow-sm d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                      <span>📷</span>
+                    </div>
+                  </div>
+                  <div class="text-muted small mt-2">点击上传立绘</div>
+                </div>
+
                 <div class="row g-3">
                   <div class="col-sm-6"><label class="form-label text-muted">姓名</label><input id="charName" class="form-control" placeholder="请输入姓名"></div>
                   <div class="col-sm-6"><label class="form-label text-muted">性别</label><select id="charGender" class="form-select"><option>男</option><option>女</option><option>其他</option></select></div>
@@ -91,14 +103,14 @@
         
         <!-- Mobile FAB -->
         <div class="fab-container">
-           <button class="btn btn-primary rounded-pill px-4 shadow-lg">保存设定</button>
-           <button class="btn btn-warning rounded-pill px-4 shadow-lg text-white">AI 润色</button>
+           <button id="saveCharBtn" class="btn btn-primary rounded-pill px-4 shadow-lg">保存设定</button>
+           <button id="aiPolishBtn" class="btn btn-warning rounded-pill px-4 shadow-lg text-white">AI 润色</button>
         </div>
         
         <!-- Desktop Actions (Hidden on mobile via CSS if needed, but keeping for now as secondary) -->
         <div class="d-none d-md-flex gap-2 justify-content-end mt-4">
            <button id="diceBtn" class="btn btn-outline-primary">🎲 随机骰子</button>
-           <button class="btn btn-outline-secondary">预览卡片</button>
+           <button id="previewCardBtn" class="btn btn-outline-secondary">预览卡片</button>
         </div>
       </div>
 
@@ -131,8 +143,8 @@
     <div class="modal-dialog modal-fullscreen">
       <div class="modal-content" style="background:rgba(255,255,255,0.95); backdrop-filter:blur(10px);">
         <div class="modal-header border-0"><h5 class="modal-title fw-bold">沉浸编辑</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
-        <div class="modal-body"><textarea class="form-control border-0 h-100 fs-5" style="background:transparent; resize:none;" placeholder="在此专注编辑背景故事..."></textarea></div>
-        <div class="modal-footer border-0"><button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">完成</button></div>
+        <div class="modal-body"><textarea id="focusBioInput" class="form-control border-0 h-100 fs-5" style="background:transparent; resize:none;" placeholder="在此专注编辑背景故事..."></textarea></div>
+        <div class="modal-footer border-0"><button type="button" id="focusSaveBtn" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">完成</button></div>
       </div>
     </div>
   </div>

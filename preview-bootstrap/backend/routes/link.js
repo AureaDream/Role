@@ -3,6 +3,21 @@ const router = express.Router();
 const LinkRequest = require('../models/linkrequest');
 const Character = require('../models/character');
 const { Op } = require('sequelize'); // 引入 Sequelize 操作符
+const jwt = require('jsonwebtoken'); // 引入 JWT
+
+// --- 中间件: JWT 身份验证 ---
+// (复用自 character.js，建议后续提取到 common/middleware)
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+
+  jwt.verify(token, 'secret_key_123456', (err, user) => {
+    if (err) return res.status(403).json({ error: 'Forbidden' });
+    req.user = user;
+    next();
+  });
+};
 
 // --- 中间件：核心校验 (checkAuth) ---
 // 在生成 AI 故事前调用，确保社交逻辑的合规性。
@@ -100,6 +115,29 @@ router.post('/request', async (req, res) => {
 
   } catch (error) {
     console.error('Send Request Failed:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// --- API: 获取我的审批列表 (Get My Pending Requests) ---
+// 功能：获取当前用户作为接收方的所有联动申请。
+// 作用：个人中心消息通知。
+router.get('/my', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // 查询发送给我的申请 (receiverId = me)
+    // 包含 pending, approved, rejected 所有状态
+    const requests = await LinkRequest.findAll({
+      where: { receiverId: userId },
+      order: [['createdAt', 'DESC']]
+    });
+
+    // 可以在此处做进一步数据填充 (populate sender info)，暂时直接返回
+    res.json(requests);
+
+  } catch (error) {
+    console.error('Get My Requests Failed:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });

@@ -1,28 +1,44 @@
 const express = require('express');
 const router = express.Router();
 const Character = require('../models/character');
-// 引入 AI 服务，用于后续辅助生成 OC 详情 (如：自动补全外貌、生成简介)
+const jwt = require('jsonwebtoken'); // 引入 JWT 用于鉴权
 const { buildChar } = require('../services/aiService');
-const { exportDoc, uploadImg } = require('../utils/fileService');
-const multer = require('multer');
-const { Op } = require('sequelize'); // 引入 Sequelize 操作符
+const { exportDoc, upload } = require('../utils/fileService'); // 引入已配置好的 upload 中间件 (DiskStorage)
+// const multer = require('multer'); // 不再需要单独引入 multer
+const { Op } = require('sequelize');
 
-// 配置内存存储，方便直接将 Buffer 传给 OSS
-const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+// --- 中间件: JWT 身份验证 ---
+// 用于保护需要登录才能访问的接口 (如 /add, /update)
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // 格式: Bearer <token>
+
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+  }
+
+  // 验证 Token (注意：生产环境应将密钥存入 .env)
+  jwt.verify(token, 'secret_key_123456', (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Forbidden: Invalid or expired token' });
+    }
+    req.user = user; // 将解析出的用户信息 (id, username) 挂载到 req 对象
+    next();
+  });
+};
+
+// 移除旧的内存存储配置
+// const storage = multer.memoryStorage();
+// const upload = multer({ storage: storage });
 
 // --- API: 获取广场列表 (OC 广场) ---
 // 功能：展示公开的 OC 角色，供用户浏览和寻找联动对象。
 // 逻辑：默认只查询 isPublic: true 的角色，按创建时间倒序排列。
 router.get('/public', async (req, res) => {
   try {
-    // 按创建时间倒序查询所有公开角色
-    // 可扩展：支持按 likes 倒序查询热门角色
     const list = await Character.findAll({
       where: { isPublic: true },
-      order: [['createdAt', 'DESC']],
-      // 注意：sequelize 中关联查询需要 include，这里暂时省略 User 关联
-      // include: [{ model: User, as: 'owner', attributes: ['username', 'avatar'] }]
+      order: [['createdAt', 'DESC']], // 按创建时间倒序
     });
 
     res.json(list);
@@ -32,55 +48,132 @@ router.get('/public', async (req, res) => {
   }
 });
 
+// --- API: 获取我的角色 (My OCs) ---
+// 功能：获取当前登录用户创建的所有 OC 角色。
+// 作用：用于个人中心展示和管理。
+router.get('/my', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const list = await Character.findAll({
+      where: { userId },
+      order: [['createdAt', 'DESC']]
+    });
+    res.json(list);
+  } catch (error) {
+    console.error('Get My Chars Failed:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 // --- API: 创建角色 (捏人) ---
-// 功能：用户提交基础信息，创建属于自己的 OC。
-// 扩展：未来可结合 buildChar 函数，通过 AI 自动丰富角色设定。
-router.post('/add', async (req, res) => {
+// 权限：需要登录 (authenticateToken)
+// 使用 multer 处理图片上传 (字段名: image)
+router.post('/add', authenticateToken, upload.single('image'), async (req, res) => {
   try {
     const data = req.body;
-    // 假设 req.user.id 是通过鉴权中间件解析出来的当前用户 ID
-    // 暂时用 req.body.owner 模拟
-    const ownerId = data.owner || req.body.userId; 
+    // 1. Token 解析：从鉴权中间件解析出的 user 对象中获取 userId
+    const userId = req.user.id;
 
-    if (!ownerId) {
-      return res.status(401).json({ error: 'Unauthorized: Missing owner ID' });
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'Invalid User ID from token' });
     }
 
-    // --- 标签处理 ---
-    // 确保 tags 是一个合法的对象数组，结构如 [{key: 'MBTI', value: 'INTJ'}]
-    // 如果前端传的是 JSON 字符串，尝试解析；如果不是数组，赋为空数组以防报错
+    // 2. 图片保存路径处理
+    // 如果有上传文件，multer 会自动保存并挂载到 req.file
+    let imgUrl = '';
+    if (req.file) {
+        // 构造可访问的 URL 路径 (对应 app.js 中的静态托管配置)
+        imgUrl = `/uploads/${req.file.filename}`;
+    }
+
+    // --- 标签处理 (兼容逻辑) ---
     let tags = data.tags;
     if (typeof tags === 'string') {
-        try {
-            tags = JSON.parse(tags);
-        } catch (e) {
-            tags = [];
-        }
+        try { tags = JSON.parse(tags); } catch (e) { tags = []; }
     }
-    if (!Array.isArray(tags)) {
-        tags = [];
-    }
+    if (!Array.isArray(tags)) tags = [];
 
-    // 使用 Sequelize 的 create 方法
-    const savedChar = await Character.create({
-      ownerId: ownerId, // 注意字段名变化: owner -> ownerId
+    // 3. 数据库保存 (Data Persistence)
+    // 使用 Sequelize 将 OC 设定存入 Characters 表
+    // 包含姓名、性别、年龄、外貌、背景(description)及自定义标签
+    const newChar = await Character.create({
+      userId: userId,        // 关联用户 ID
       name: data.name,
+      description: data.description, // 角色设定 (背景故事)
+      image: imgUrl,         // 立绘路径
+      isPublic: data.isPublic === 'true' || data.isPublic === true, // 确保布尔值正确
+      
+      // 保留其他可选字段以兼容旧逻辑
       gender: data.gender,
       age: data.age,
-      avatar: data.avatar,
-      intro: data.intro,
-      appearance: data.appearance, // 外貌描述
-      personality: data.personality, // 性格细节
-      bio: data.bio || data.background, // 字段名已统一为 bio
-      tags: tags, // 存储处理后的自定义标签 (JSON)
-      isPublic: data.isPublic || false // 默认私密
+      intro: data.intro, // 简介
+      appearance: data.appearance, // 外貌
+      personality: data.personality,
+      tags: tags // 存储种族、职业等标签信息
     });
 
-    res.status(201).json({ message: 'Character created successfully', char: savedChar });
+    res.status(201).json({ success: true, data: newChar });
 
   } catch (error) {
     console.error('Create Char Failed:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+});
+
+// --- API: 更新角色 ---
+// 权限：需要登录且是角色的拥有者
+router.put('/update/:id', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = req.body;
+    const userId = req.user.id;
+
+    // 1. 查找角色
+    const char = await Character.findByPk(id);
+    if (!char) {
+      return res.status(404).json({ success: false, error: 'Character not found' });
+    }
+
+    // 2. 权限校验：只能修改自己的角色
+    if (char.userId !== userId) {
+      return res.status(403).json({ success: false, error: 'You do not have permission to edit this character' });
+    }
+
+    // 3. 图片处理
+    let imgUrl = char.image;
+    if (req.file) {
+        imgUrl = `/uploads/${req.file.filename}`;
+    }
+
+    // 4. 处理标签
+    let tags = data.tags;
+    if (typeof tags === 'string') {
+        try { tags = JSON.parse(tags); } catch (e) { tags = []; }
+    }
+    // 如果没有传 tags，则保持原样；如果传了且不是数组，设为空
+    if (data.tags !== undefined && !Array.isArray(tags)) tags = [];
+
+    // 5. 更新字段
+    await char.update({
+      name: data.name || char.name,
+      description: data.description || char.description,
+      image: imgUrl,
+      isPublic: data.isPublic !== undefined ? (data.isPublic === 'true' || data.isPublic === true) : char.isPublic,
+      
+      // 兼容字段更新
+      gender: data.gender || char.gender,
+      age: data.age || char.age,
+      intro: data.intro || char.intro,
+      appearance: data.appearance || char.appearance,
+      personality: data.personality || char.personality,
+      tags: tags !== undefined ? tags : char.tags,
+    });
+
+    res.json({ success: true, message: 'Character updated successfully', data: char });
+
+  } catch (error) {
+    console.error('Update Char Failed:', error);
+    res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 });
 
@@ -158,9 +251,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded.' });
     }
 
-    // 调用 utils/fileService.js 中的 uploadImg 服务
-    // 该服务会自动处理文件名重命名（防重名）和路径拼接
-    const resUrl = await uploadImg(file.buffer, file.originalname);
+    // 文件已由 multer 自动保存到 utils/fileService.js 配置的 UPLOAD_DIR
+    // 直接构造返回 URL
+    const resUrl = `/uploads/${file.filename}`;
 
     res.json({ 
       message: 'Upload successful', 

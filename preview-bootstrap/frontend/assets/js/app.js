@@ -82,50 +82,57 @@ window.login = login;
 
 // 1. 首页 (index.html)
 async function initHome() {
-  const carouselInner = document.querySelector('#popularCarousel .carousel-inner');
   const grid = document.querySelector('#squareGrid');
-
   if (!grid) return; // 确保在首页
 
   try {
-    // 获取后端动态数据
-    const list = await request('/char/public');
+    // 获取后端动态数据 (OC 广场列表)
+    const charList = await request('/char/public');
     
     // 渲染广场卡片
     grid.innerHTML = ''; // 清空占位
-    list.forEach(item => {
-      // 处理头像：如果是相对路径，加上 API_BASE 的前缀 (去除 /api)
-      const avatarUrl = item.avatar.startsWith('http') 
-        ? item.avatar 
-        : `${API_BASE}${item.avatar}`;
+    
+    // 遍历数据生成卡片
+    // 变量名: charList (数据源), container (容器), cardHtml (HTML片段)
+    const container = document.createDocumentFragment();
 
-      const card = `
+    charList.forEach(char => {
+      // --- 图片地址转换逻辑 ---
+      // 1. 如果是完整 URL (http开头)，直接使用
+      // 2. 如果是相对路径 (/uploads/xxx)，拼接 HOST_BASE
+      // 3. 如果为空，使用默认占位图
+      const imgUrl = getImgUrl(char.image || char.avatar);
+
+      // --- HTML 拼接逻辑 ---
+      // 构建 Bootstrap 卡片结构
+      // 包含: 图片(img-top), 名字(card-title), 描述(card-text)
+      const cardHtml = `
         <div class="col">
-          <div class="card h-100" onclick="location.href='pages/detail.html?id=${item.id}'" style="cursor:pointer">
-            <img src="${avatarUrl}" class="card-img-top" style="aspect-ratio:1/1;object-fit:cover;" onerror="this.src='https://placehold.co/400?text=No+Image'"/>
+          <div class="card h-100 shadow-sm hover-card" onclick="console.log('Selected Char ID:', ${char.id}); location.href='pages/detail.html?id=${char.id}'" style="cursor:pointer; transition: all 0.3s ease;">
+            <img src="${imgUrl}" class="card-img-top" style="aspect-ratio: 1/1; object-fit: cover;" alt="${char.name}" onerror="this.src='https://placehold.co/400?text=No+Image'">
             <div class="card-body">
-              <div class="d-flex justify-content-between align-items-center">
-                <div class="fw-semibold text-truncate">${item.name}</div>
-                <span class="badge text-bg-success">公开</span>
-              </div>
-              <div class="caps my-2">
-                <span class="cap">${item.gender}</span>
-                <span class="cap">${item.age}岁</span>
-              </div>
-              <div class="text-muted small text-truncate-2" style="min-height:40px;">${item.intro || '暂无简介'}</div>
-              <div class="d-flex gap-2 mt-2">
-                <button class="btn btn-outline-primary btn-sm w-100" onclick="event.stopPropagation(); likeChar(${item.id}, this)">
-                  ❤️ ${item.likes || 0}
-                </button>
+              <h5 class="card-title text-truncate">${char.name}</h5>
+              <div class="card-text text-muted small text-truncate-2" style="min-height: 2.5em;">
+                ${char.description || char.intro || '暂无描述'}
               </div>
             </div>
+            <div class="card-footer bg-transparent border-top-0">
+              <small class="text-body-secondary">
+                <i class="bi bi-heart-fill text-danger"></i> ${char.likes || 0} 热度
+              </small>
+            </div>
           </div>
-        </div>`;
-      grid.insertAdjacentHTML('beforeend', card);
+        </div>
+      `;
+      
+      grid.insertAdjacentHTML('beforeend', cardHtml);
     });
 
   } catch (error) {
-    grid.innerHTML = `<div class="col-12 text-center text-muted py-5">加载失败，请检查后端服务</div>`;
+    console.error('Home Render Error:', error);
+    grid.innerHTML = `<div class="col-12 text-center text-muted py-5">
+      <div class="alert alert-warning">暂无角色或服务连接失败</div>
+    </div>`;
   }
 }
 
@@ -139,155 +146,303 @@ async function likeChar(id, btn) {
   }
 }
 
-// 2. 工作台 (workshop.html)
-function initWorkshop() {
-  const genBtn = document.querySelector('#genBtn');
-  const selA = document.querySelector('#selectA');
-  const selB = document.querySelector('#selectB');
-  
-  // 初始化下拉框数据 (获取所有角色)
-  // 实际场景应获取“我的角色”和“已授权角色”，这里暂时用 public 列表演示
-  request('/char/public').then(list => {
-    if (!selA) return;
-    list.forEach(o => {
-      const opt = `<option value="${o.id}">${o.name}</option>`;
-      selA.insertAdjacentHTML('beforeend', opt);
-      selB.insertAdjacentHTML('beforeend', opt);
-    });
-  });
-
-  // 织梦生成逻辑
-  genBtn?.addEventListener('click', async () => {
-    const charIds = [selA.value, selB.value].filter(Boolean);
-    const scene = document.querySelector('#keywords').value;
+  // 2. 工作台 (workshop.html)
+  function initWorkshop() {
+    const genBtn = document.querySelector('#genBtn');
+    const selA = document.querySelector('#selectA');
+    const selB = document.querySelector('#selectB');
     
-    if (charIds.length < 1) return alert('请至少选择一个角色');
-    if (!scene) return alert('请输入场景关键词');
+    // 初始化下拉框数据 (获取所有角色)
+    request('/char/public').then(list => {
+      if (!selA) return;
+      list.forEach(o => {
+        const opt = `<option value="${o.id}">${o.name}</option>`;
+        selA.insertAdjacentHTML('beforeend', opt);
+        selB.insertAdjacentHTML('beforeend', opt);
+      });
+    });
 
-    // UI Loading
-    genBtn.disabled = true;
-    genBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 正在织梦...';
-    document.querySelector('#loadingArea').classList.remove('d-none');
-    document.querySelector('#resultCard').classList.add('d-none');
+    // 织梦生成逻辑 (genBtn 点击事件)
+    // 1. 点击后显示 loadingArea (删除 d-none 类)
+    // 2. 调用 /api/story/generate 接口
+    // 3. 成功后隐藏 Loading，显示 resultCard 并将返回的故事填入 resultPre
+    genBtn?.addEventListener('click', async () => {
+      const charIdA = selA.value;
+      const charIdB = selB.value;
+      const keywords = document.querySelector('#keywords').value;
+      
+      if (!charIdA || !charIdB) return alert('请选择主角和配角');
+      if (!keywords) return alert('请输入场景关键词');
 
-    try {
-      // 调用后端生成接口
-      const res = await request('/story/create', {
-        method: 'POST',
-        body: { charIds, scene, userId: 1 } // userId 暂时写死，需对接登录
+      // 显示 Loading
+      genBtn.disabled = true;
+      genBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 正在织梦...';
+      document.querySelector('#loadingArea').classList.remove('d-none');
+      document.querySelector('#resultCard').classList.add('d-none');
+
+      try {
+        // 调用后端生成接口
+        const res = await request('/story/generate', {
+          method: 'POST',
+          body: { charIdA, charIdB, keywords }
+        });
+
+        // 隐藏 Loading，显示结果
+        document.querySelector('#loadingArea').classList.add('d-none');
+        document.querySelector('#resultCard').classList.remove('d-none');
+        
+        // 渲染故事内容 (打字机效果)
+        const text = res.story.content;
+        const pre = document.querySelector('#resultPre');
+        pre.textContent = '';
+        
+        let i = 0;
+        function type() {
+          if (i < text.length) {
+            pre.textContent += text.charAt(i);
+            i++;
+            setTimeout(type, 20);
+          } else {
+            genBtn.disabled = false;
+            genBtn.textContent = '✨ 再次生成';
+          }
+        }
+        type();
+
+      } catch (error) {
+        console.error('Generate Story Failed:', error);
+        alert('生成失败: ' + error.message);
+        genBtn.disabled = false;
+        genBtn.textContent = '✨ 织梦生成';
+        document.querySelector('#loadingArea').classList.add('d-none');
+      }
+    });
+
+    // 绑定“保存设定”按钮 (创建 OC)
+    const saveBtn = document.querySelector('#saveCharBtn');
+    const tagKeyInput = document.querySelector('#tagKey');
+    const tagValInput = document.querySelector('#tagVal');
+    const addTagBtn = document.querySelector('#addTagBtn');
+    const tagListEl = document.querySelector('#tagList');
+    
+    // 临时存储标签
+    let currentTags = [];
+
+    // 添加标签逻辑 (addTagBtn 点击事件)
+    // 将输入的键值对渲染到 tagList 中，并以数组形式存储以便保存
+    addTagBtn?.addEventListener('click', () => {
+      const k = tagKeyInput.value.trim();
+      const v = tagValInput.value.trim();
+      if (k && v) {
+        currentTags.push({ key: k, value: v });
+        renderTags();
+        tagKeyInput.value = '';
+        tagValInput.value = '';
+      }
+    });
+
+    function renderTags() {
+      if (!tagListEl) return;
+      tagListEl.innerHTML = currentTags.map(t => 
+        `<span class="badge text-bg-light border me-1">${t.key}: ${t.value}</span>`
+      ).join('');
+    }
+
+    // --- 头像上传预览逻辑 ---
+    const avatarInput = document.querySelector('#charAvatarInput');
+    const avatarPreview = document.querySelector('#charAvatarPreview');
+    
+    avatarInput?.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          avatarPreview.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // 数据采集与异步提交 (saveCharacter 逻辑)
+    // 点击“保存设定”按钮时，采集姓名、性别、年龄、种族、职业、外貌描述、背景故事及标签数据
+    // 使用 fetch 以 POST 方式将数据发送至 /api/char/add (Header 需携带 Token)
+    saveBtn?.addEventListener('click', async () => {
+      // 1. 数据采集
+      const name = document.querySelector('#charName').value;
+      const gender = document.querySelector('#charGender').value;
+      const age = document.querySelector('#charAge').value;
+      const race = document.querySelector('#charRace').value;
+      const job = document.querySelector('#charJob').value;
+      const appearance = document.querySelector('#charAppearance').value;
+      const bio = document.querySelector('#charBio').value;
+      const avatarFile = document.querySelector('#charAvatarInput').files[0];
+
+      if (!name) return alert('请输入角色姓名');
+
+      // 整合标签 (将种族和职业加入 Tags)
+      const finalTags = [...currentTags];
+      if (race) finalTags.push({ key: '种族', value: race });
+      if (job) finalTags.push({ key: '职业', value: job });
+
+      // 构造请求体 (使用 FormData 以支持图片上传)
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('gender', gender);
+      formData.append('age', age);
+      formData.append('description', bio); // 对应后端 description
+      formData.append('appearance', appearance);
+      formData.append('isPublic', 'true');
+      
+      // 复杂对象需转为 JSON 字符串
+      formData.append('tags', JSON.stringify(finalTags));
+
+      // 如果有图片，添加图片
+      if (avatarFile) {
+        formData.append('image', avatarFile);
+      }
+
+      try {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '保存中...';
+        
+        // 2. 异步提交
+        // request 函数会自动检测 FormData 并跳过 Content-Type 设置，浏览器会自动生成 boundary
+        await request('/char/add', {
+          method: 'POST',
+          body: formData
+        });
+
+        alert('✨ 角色创建成功！');
+        location.reload(); 
+        
+      } catch (error) {
+        alert('创建失败: ' + error.message);
+        saveBtn.disabled = false;
+        saveBtn.textContent = '保存设定';
+      }
+    });
+
+    // --- 沉浸编辑同步逻辑 ---
+    const focusModalEl = document.getElementById('focusModal');
+    const charBioInput = document.getElementById('charBio');
+    const focusBioInput = document.getElementById('focusBioInput');
+
+    if (focusModalEl && charBioInput && focusBioInput) {
+      // 打开时同步：主编辑框 -> 沉浸框
+      focusModalEl.addEventListener('show.bs.modal', () => {
+        focusBioInput.value = charBioInput.value;
       });
 
-      // 显示结果
-      document.querySelector('#loadingArea').classList.add('d-none');
-      document.querySelector('#resultCard').classList.remove('d-none');
+      // 关闭时同步：沉浸框 -> 主编辑框
+      focusModalEl.addEventListener('hide.bs.modal', () => {
+        charBioInput.value = focusBioInput.value;
+      });
       
-      const text = res.story.content;
-      const pre = document.querySelector('#resultPre');
-      pre.textContent = '';
+      // 实时同步：防止意外关闭导致数据丢失
+      focusBioInput.addEventListener('input', () => {
+        charBioInput.value = focusBioInput.value;
+      });
+    }
+
+    // --- 随机骰子逻辑 ---
+    const diceBtn = document.querySelector('#diceBtn');
+    diceBtn?.addEventListener('click', () => {
+      const races = ['人类', '精灵', '兽人', '龙族', '机械生命', '亡灵'];
+      const jobs = ['战士', '法师', '游侠', '刺客', '牧师', '吟游诗人'];
+      const firstNames = ['亚瑟', '露娜', '凯尔', '艾薇', '索尔', '米娅'];
+      const lastNames = ['风行者', '光辉', '暗影', '铁壁', '星语', '炎魔'];
       
-      // 打字机效果
-      let i = 0;
-      function type() {
-        if (i < text.length) {
-          pre.textContent += text.charAt(i);
-          i++;
-          setTimeout(type, 20);
-        } else {
-          genBtn.disabled = false;
-          genBtn.textContent = '✨ 再次生成';
-        }
+      document.querySelector('#charName').value = `${firstNames[Math.floor(Math.random() * firstNames.length)]}·${lastNames[Math.floor(Math.random() * lastNames.length)]}`;
+      document.querySelector('#charAge').value = Math.floor(Math.random() * 80) + 16;
+      document.querySelector('#charRace').value = races[Math.floor(Math.random() * races.length)];
+      document.querySelector('#charJob').value = jobs[Math.floor(Math.random() * jobs.length)];
+      document.querySelector('#charGender').value = ['男', '女', '其他'][Math.floor(Math.random() * 3)];
+    });
+
+    // --- AI 润色逻辑 ---
+    const aiPolishBtn = document.querySelector('#aiPolishBtn');
+    aiPolishBtn?.addEventListener('click', async () => {
+      const name = document.querySelector('#charName').value;
+      const race = document.querySelector('#charRace').value;
+      const job = document.querySelector('#charJob').value;
+      const simpleBio = document.querySelector('#charBio').value;
+
+      if (!name) return alert('请先输入角色姓名');
+
+      try {
+        aiPolishBtn.disabled = true;
+        aiPolishBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 润色中...';
+
+        // 构造关键词
+        const keywords = [race, job, simpleBio].filter(Boolean).join('，');
+        
+        const res = await request('/char/generate-bio', {
+          method: 'POST',
+          body: { name, keywords }
+        });
+
+        if (res.appearance) document.querySelector('#charAppearance').value = res.appearance;
+        if (res.bio) document.querySelector('#charBio').value = res.bio;
+        
+        // 如果正在沉浸编辑中，也要同步
+        if (focusBioInput) focusBioInput.value = res.bio;
+
+      } catch (error) {
+        console.error('AI Polish Failed:', error);
+        alert('AI 润色失败: ' + error.message);
+      } finally {
+        aiPolishBtn.disabled = false;
+        aiPolishBtn.textContent = 'AI 润色';
       }
-      type();
+    });
 
-    } catch (error) {
-      genBtn.disabled = false;
-      genBtn.textContent = '✨ 织梦生成';
-      document.querySelector('#loadingArea').classList.add('d-none');
-    }
-  });
+    // --- 预览卡片逻辑 ---
+    const previewBtn = document.querySelector('#previewCardBtn');
+    previewBtn?.addEventListener('click', () => {
+      const name = document.querySelector('#charName').value || '未命名';
+      const bio = document.querySelector('#charBio').value || '暂无描述';
+      
+      // 获取当前预览的头像 (如果是默认占位图，则显示 Preview 文字)
+      const avatarPreview = document.querySelector('#charAvatarPreview');
+      let imgUrl = 'https://placehold.co/400?text=Preview';
+      if (avatarPreview && !avatarPreview.src.includes('text=Upload')) {
+        imgUrl = avatarPreview.src;
+      }
 
-  // 绑定“保存设定”按钮 (创建 OC)
-  const saveBtn = document.querySelector('#saveCharBtn');
-  const tagKeyInput = document.querySelector('#tagKey');
-  const tagValInput = document.querySelector('#tagVal');
-  const addTagBtn = document.querySelector('#addTagBtn');
-  const tagListEl = document.querySelector('#tagList');
-  
-  // 临时存储标签
-  let currentTags = [];
+      // 动态创建一个 Modal 进行预览
+      const modalHtml = `
+        <div class="modal fade" id="previewModal" tabindex="-1">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title">角色卡片预览</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                <div class="card shadow-sm">
+                  <img src="${imgUrl}" class="card-img-top" alt="${name}">
+                  <div class="card-body">
+                    <h5 class="card-title">${name}</h5>
+                    <p class="card-text text-muted small">${bio.slice(0, 100)}...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      // 移除旧的 modal (如果有)
+      const oldModal = document.getElementById('previewModal');
+      if (oldModal) oldModal.remove();
 
-  // 添加标签逻辑
-  addTagBtn?.addEventListener('click', () => {
-    const k = tagKeyInput.value.trim();
-    const v = tagValInput.value.trim();
-    if (k && v) {
-      currentTags.push({ key: k, value: v });
-      renderTags();
-      tagKeyInput.value = '';
-      tagValInput.value = '';
-    }
-  });
-
-  function renderTags() {
-    if (!tagListEl) return;
-    tagListEl.innerHTML = currentTags.map(t => 
-      `<span class="badge text-bg-light border me-1">${t.key}: ${t.value}</span>`
-    ).join('');
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      const modal = new bootstrap.Modal(document.getElementById('previewModal'));
+      modal.show();
+    });
   }
 
-  // 保存逻辑
-  saveBtn?.addEventListener('click', async () => {
-    // 收集表单数据
-    const name = document.querySelector('#charName').value;
-    const gender = document.querySelector('#charGender').value;
-    const age = document.querySelector('#charAge').value;
-    const race = document.querySelector('#charRace').value;
-    const job = document.querySelector('#charJob').value;
-    const appearance = document.querySelector('#charAppearance').value;
-    const bio = document.querySelector('#charBio').value;
-
-    if (!name) return alert('请输入角色姓名');
-
-    // 整合标签 (将种族和职业加入 Tags)
-    const finalTags = [...currentTags];
-    if (race) finalTags.push({ key: '种族', value: race });
-    if (job) finalTags.push({ key: '职业', value: job });
-
-    // 构造请求体
-    const payload = {
-      owner: 1, // 临时硬编码，后续对接用户系统
-      name,
-      gender,
-      age,
-      avatar: '/uploads/default.png', // 暂无上传，使用默认图
-      intro: bio.slice(0, 30) + '...', // 自动截取简介
-      appearance,
-      bio,
-      tags: finalTags,
-      isPublic: true // 默认公开以便测试
-    };
-
-    try {
-      saveBtn.disabled = true;
-      saveBtn.textContent = '保存中...';
-      
-      await request('/char/add', {
-        method: 'POST',
-        body: payload
-      });
-
-      alert('✨ 角色创建成功！');
-      location.reload(); // 刷新页面
-      
-    } catch (error) {
-      alert('创建失败: ' + error.message);
-      saveBtn.disabled = false;
-      saveBtn.textContent = '保存设定';
-    }
-  });
-}
-
-// 3. 详情页 (detail.html)
+  // 3. 详情页 (detail.html)
 async function initDetail() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
@@ -324,13 +479,158 @@ async function initDetail() {
 }
 
 // 4. 登录页 (login.html) - 已迁移至 auth.js
-// function initLogin() { ... }
+  // function initLogin() { ... }
+  
+  // 5. 个人中心 (profile.html)
+  async function initProfile() {
+    const myOcGrid = document.querySelector('#myOcGrid');
+    const myStoryGrid = document.querySelector('#myStoryGrid');
+    const reqTbody = document.querySelector('#reqTbody');
 
-// --- 全局入口 ---
-document.addEventListener('DOMContentLoaded', () => {
-  const page = document.body.getAttribute('data-page');
-  if (page === 'home') initHome();
-  if (page === 'workshop') initWorkshop();
-  if (page === 'detail') initDetail();
-  // if (page === 'login') initLogin(); // 由 auth.js 接管
-});
+    if (!myOcGrid) return; // 确保在个人中心页
+
+    // --- 数据加载 ---
+    try {
+      // 1. 获取我的 OC 库
+      // 调用 /api/char/my 接口，Token 由 request 函数自动携带
+      const myChars = await request('/char/my');
+      
+      // 2. 渲染 OC 卡片
+      myOcGrid.innerHTML = '';
+      if (myChars.length === 0) {
+        myOcGrid.innerHTML = `<div class="col-12 text-center text-muted py-5">暂无角色，快去工作台创造一个吧！</div>`;
+      } else {
+        myChars.forEach(char => {
+          const imgUrl = getImgUrl(char.image || char.avatar);
+          const cardHtml = `
+            <div class="col">
+              <div class="card h-100 shadow-sm">
+                <div class="row g-0 h-100">
+                  <div class="col-4">
+                    <img src="${imgUrl}" class="img-fluid rounded-start h-100 object-fit-cover" alt="${char.name}" onerror="this.src='https://placehold.co/200?text=No+Image'">
+                  </div>
+                  <div class="col-8">
+                    <div class="card-body d-flex flex-column h-100 py-2">
+                      <h5 class="card-title text-truncate mb-1">${char.name}</h5>
+                      <p class="card-text text-muted small mb-auto">${char.tags?.find(t=>t.key==='职业')?.value || '自由职业'}</p>
+                      <div class="mt-2 d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm flex-fill" onclick="location.href='workshop.html?edit=${char.id}'">编辑</button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteChar(${char.id})">删除</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          myOcGrid.insertAdjacentHTML('beforeend', cardHtml);
+        });
+      }
+
+      // 3. 获取我的故事集
+      const myStories = await request('/story/my');
+      
+      // 4. 渲染故事卡片
+      myStoryGrid.innerHTML = '';
+      if (myStories.length === 0) {
+        myStoryGrid.innerHTML = `<div class="col-12 text-center text-muted py-3">暂无故事，去工作台“织梦”吧</div>`;
+      } else {
+        myStories.forEach(story => {
+          const cardHtml = `
+            <div class="col">
+              <div class="card h-100">
+                <div class="card-body">
+                  <div class="h6 text-truncate" title="${story.title}">${story.title}</div>
+                  <p class="text-muted small mb-2 text-truncate-2">${story.content.slice(0, 50)}...</p>
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-primary btn-sm" onclick="alert('预览功能开发中:\\n${story.title}')">预览</button>
+                    <button class="btn btn-outline-secondary btn-sm">归档</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+          myStoryGrid.insertAdjacentHTML('beforeend', cardHtml);
+        });
+      }
+
+      // 5. 获取联动审批列表 (需补充 /api/request/my 接口)
+      // 暂时用 try-catch 包裹以防接口未就绪报错影响页面
+      try {
+        // 请求 /api/link/my (根据 link.js 路由前缀)
+        const reqList = await request('/link/my');
+        
+        reqTbody.innerHTML = '';
+        if (reqList.length === 0) {
+          reqTbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">暂无待处理申请</td></tr>`;
+        } else {
+          reqList.forEach(req => {
+            const statusBadge = {
+              'pending': '<span class="badge text-bg-warning">待审批</span>',
+              'approved': '<span class="badge text-bg-success">已通过</span>',
+              'rejected': '<span class="badge text-bg-secondary">已拒绝</span>'
+            }[req.status] || req.status;
+
+            const rowHtml = `
+              <tr>
+                <td>用户 #${req.senderId}</td>
+                <td>OC #${req.targetCharId}</td>
+                <td>${new Date(req.createdAt).toLocaleDateString()}</td>
+                <td>${statusBadge}</td>
+                <td>
+                  ${req.status === 'pending' ? `
+                    <button class="btn btn-sm btn-success me-1" onclick="handleReq(${req.id}, 'approved')">通过</button>
+                    <button class="btn btn-sm btn-danger" onclick="handleReq(${req.id}, 'rejected')">拒绝</button>
+                  ` : '-'}
+                </td>
+              </tr>
+            `;
+            reqTbody.insertAdjacentHTML('beforeend', rowHtml);
+          });
+        }
+      } catch (e) {
+        console.warn('Load Requests Failed:', e);
+      }
+
+    } catch (error) {
+      console.error('Profile Init Failed:', error);
+      // 如果是 Token 失效 (401/403)，request 函数内部通常会抛出错误
+      if (error.message.includes('401') || error.message.includes('403')) {
+        alert('登录已过期，请重新登录');
+        location.href = '../login.html';
+      }
+    }
+  }
+
+  // --- 辅助动作函数 ---
+  window.deleteChar = async (id) => {
+    if (!confirm('确定要删除这个角色吗？此操作不可恢复。')) return;
+    try {
+      // 需后端支持 DELETE 接口
+      alert('删除功能需后端支持 DELETE /char/:id');
+    } catch (e) {
+      alert('删除失败');
+    }
+  };
+
+  window.handleReq = async (reqId, status) => {
+    try {
+      await request(`/link/request/${reqId}`, {
+        method: 'PUT',
+        body: { status, userId: 1 } // userId 需动态获取，此处由 Token 解析，body 可不传 userId
+      });
+      alert('操作成功');
+      location.reload();
+    } catch (e) {
+      alert('操作失败: ' + e.message);
+    }
+  };
+
+  // --- 全局入口 ---
+  document.addEventListener('DOMContentLoaded', () => {
+    const page = document.body.getAttribute('data-page');
+    if (page === 'home') initHome();
+    if (page === 'workshop') initWorkshop();
+    if (page === 'detail') initDetail();
+    if (page === 'profile') initProfile();
+  });
