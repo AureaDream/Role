@@ -72,6 +72,10 @@ async function request(endpoint, options = {}) {
     
     // 但更优的方式是在上方 !res.ok 的时候处理
     // 这里只负责兜底 alert，除非调用方 catch 了
+    if (e.name === 'AbortError') {
+      console.error('请求超时');
+      throw new Error('请求超时，请检查网络连接或稍后重试');
+    }
     throw e;
   }
 }
@@ -419,17 +423,19 @@ window.likeChar = likeChar; // 暴露给全局
       const age = document.querySelector('#charAge').value;
       const race = document.querySelector('#charRace').value;
       const job = document.querySelector('#charJob').value;
+      const personality = document.querySelector('#charPersonality').value;
       const appearance = document.querySelector('#charAppearance').value;
       const bio = document.querySelector('#charBio').value;
       const avatarFile = document.querySelector('#charAvatarInput').files[0];
 
       if (!name) return alert('请输入角色姓名');
 
-      // 整合标签 (将种族和职业加入 Tags)
+      // 整合标签 (将种族、职业、性格加入 Tags)
       // 注意：如果是编辑模式，需要避免重复添加，这里简单起见每次都重新生成
-      const finalTags = [...currentTags.filter(t => t.key !== '种族' && t.key !== '职业')];
+      const finalTags = [...currentTags.filter(t => t.key !== '种族' && t.key !== '职业' && t.key !== '性格')];
       if (race) finalTags.push({ key: '种族', value: race });
       if (job) finalTags.push({ key: '职业', value: job });
+      if (personality) finalTags.push({ key: '性格', value: personality });
 
       // 构造请求体 (使用 FormData 以支持图片上传)
       const formData = new FormData();
@@ -453,7 +459,7 @@ window.likeChar = likeChar; // 暴露给全局
 
       try {
         saveBtn.disabled = true;
-        saveBtn.textContent = isUpdate ? '更新中...' : '保存中...';
+        if (!isUpdate) saveBtn.textContent = '保存中...';
         
         // 2. 异步提交
         const url = isUpdate ? `/char/update/${updateId}` : '/char/add';
@@ -464,12 +470,11 @@ window.likeChar = likeChar; // 暴露给全局
           body: formData
         });
 
-        await showAlert(isUpdate ? '✨ 角色更新成功！' : '✨ 角色创建成功！');
-        
-        // 如果是更新，返回个人中心；如果是新建，刷新页面
+        // 如果是更新，直接跳转详情页；如果是新建，提示成功并刷新
         if (isUpdate) {
-            location.href = 'profile.html';
+            location.href = 'detail.html?id=' + updateId;
         } else {
+            await showAlert('✨ 角色创建成功！');
             location.reload(); 
         }
         
@@ -574,6 +579,7 @@ window.likeChar = likeChar; // 暴露给全局
       const job = document.querySelector('#charJob').value;
       const bio = document.querySelector('#charBio').value;
       const personality = document.querySelector('#charPersonality').value;
+      const appearance = document.querySelector('#charAppearance').value;
 
       if (!name) { showAlert('请先输入角色姓名'); return; }
 
@@ -587,7 +593,8 @@ window.likeChar = likeChar; // 暴露给全局
           race,
           job,
           bio,
-          personality
+          personality,
+          appearance
         };
         
         // 调用新的润色接口
@@ -596,34 +603,43 @@ window.likeChar = likeChar; // 暴露给全局
           body: { charContext }
         });
 
+        // 处理返回的 JSON 对象 { bio, appearance }
         if (res.polishedText) {
-          const polished = res.polishedText;
-          const target = document.querySelector('#charBio');
-          const focusTarget = document.getElementById('focusBioInput');
+          const { bio: newBio, appearance: newAppearance } = res.polishedText;
           
-          // 简单的逐字显现动画 (不阻塞 UI)
-          let currentText = '';
-          let i = 0;
-          const speed = 15;
+          const bioTarget = document.querySelector('#charBio');
+          const focusBioTarget = document.getElementById('focusBioInput');
+          const appTarget = document.querySelector('#charAppearance');
           
-          target.value = ''; // 清空
-          if(focusTarget) focusTarget.value = '';
+          // 清空
+          bioTarget.value = '';
+          if(focusBioTarget) focusBioTarget.value = '';
+          appTarget.value = '';
 
-          function typeWriter() {
-            if (i < polished.length) {
-              currentText += polished.charAt(i);
-              target.value = currentText;
-              if (focusTarget) focusTarget.value = currentText;
-              i++;
-              requestAnimationFrame(() => setTimeout(typeWriter, speed));
-            } else {
-               aiPolishBtn.disabled = false;
-               aiPolishBtn.textContent = 'AI 润色';
+          // 简单的逐字显现动画 (并行)
+          function animateText(target, text, syncTarget) {
+            let i = 0;
+            function step() {
+              if (i < text.length) {
+                const current = text.slice(0, i + 1);
+                target.value = current;
+                if (syncTarget) syncTarget.value = current;
+                i++;
+                requestAnimationFrame(step); // 使用 RAF 替代 setTimeout 获得更流畅效果
+              }
             }
+            step();
           }
-          typeWriter();
+
+          if (newBio) animateText(bioTarget, newBio, focusBioTarget);
+          if (newAppearance) animateText(appTarget, newAppearance);
+
+          // 动画结束后恢复按钮
+          setTimeout(() => {
+             aiPolishBtn.disabled = false;
+             aiPolishBtn.textContent = 'AI 润色';
+          }, Math.max(newBio?.length || 0, newAppearance?.length || 0) * 16 + 500);
           
-          // 不要在 finally 里立即重置按钮，交给动画结束回调
           return; 
         }
 
@@ -710,6 +726,13 @@ async function initDetail() {
 
     document.querySelector('#appearance').textContent = oc.appearance || '暂无';
     document.querySelector('#background').textContent = oc.description || oc.bio || '暂无'; // 后端字段可能是 description
+
+    // 填充性格 (从 Tags 中获取)
+    const personalityTag = Array.isArray(oc.tags) ? oc.tags.find(t => t.key === '性格') : null;
+    const traitsEl = document.querySelector('#traits');
+    if (traitsEl) {
+      traitsEl.textContent = personalityTag ? personalityTag.value : '暂无';
+    }
     
     // 优化：详细设定区域背景
     document.querySelector('.card.mt-3 .card-body').classList.add('detail-section');
@@ -940,7 +963,7 @@ async function initDetail() {
           const imgUrl = getImgUrl(char.image || char.avatar);
           const cardHtml = `
             <div class="col">
-              <div class="card h-100 shadow-sm">
+              <div class="card h-100 shadow-sm hover-lift" onclick="location.href='detail.html?id=${char.id}'" style="cursor:pointer;">
                 <div class="row g-0 h-100">
                   <div class="col-4">
                     <img src="${imgUrl}" class="img-fluid rounded-start h-100 object-fit-cover" alt="${char.name}" onerror="this.src='https://placehold.co/200?text=No+Image'">
@@ -950,8 +973,8 @@ async function initDetail() {
                       <h5 class="card-title text-truncate mb-1">${char.name}</h5>
                       <p class="card-text text-muted small mb-auto">${char.tags?.find(t=>t.key==='职业')?.value || '自由职业'}</p>
                       <div class="mt-2 d-flex gap-2">
-                        <button class="btn btn-outline-primary btn-sm flex-fill" onclick="location.href='workshop.html?edit=${char.id}'">编辑</button>
-                        <button class="btn btn-outline-danger btn-sm" onclick="deleteChar(${char.id})">删除</button>
+                        <button class="btn btn-outline-primary btn-sm flex-fill" onclick="event.stopPropagation(); location.href='workshop.html?edit=${char.id}'">编辑</button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="event.stopPropagation(); deleteChar(${char.id})">删除</button>
                       </div>
                     </div>
                   </div>

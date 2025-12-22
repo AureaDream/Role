@@ -110,30 +110,69 @@ async function buildChar(inputData) {
 
 /**
  * 润色背景故事 (AI Polish)
- * @param {Object} context - 角色上下文 { name, race, job, bio, personality }
- * @returns {Promise<string>} - 润色后的文本
+ * @param {Object} context - 角色上下文 { name, race, job, bio, personality, appearance }
+ * @returns {Promise<Object>} - 润色后的文本对象 { bio, appearance }
  */
 async function polishBio(context) {
-  const { name, race, job, bio, personality } = context;
+  const { name, race, job, bio, personality, appearance } = context;
   
   // --- 系统预设 (System Prompt) ---
-  // 核心逻辑：扮演文学导师，对文本进行润色
-  const systemPrompt = `你是一位顶尖的同人小说作家与文学编辑。 任务目标：润色用户提供的角色背景故事。 核心约束： 1. 深度引用设定：请基于该角色的设定（姓名：${name || '未知'}, 职业：${job || '未知'}等）。润色后的内容必须与这些基础属性完美契合，不得产生逻辑冲突。 2. 尊重世界观：基于角色原有的背景框架进行扩充，严禁引入违背原有世界观的现代或异质元素。 3. 文风要求：以小说笔触进行描写，增强画面感、心理描写和氛围渲染，展现专业作家的文采。 4. 字数控制：润色后的内容必须精炼在 500 字以内。`;
+  const systemPrompt = `# Role: 资深轻小说作家 & 剧本医生
+
+你擅长用最简练的文字勾勒最具张力的画面。请润色用户提供的角色背景（Bio）与外貌（Appearance），要求摒弃华而不实的堆砌，追求“清爽、有痛感、有呼吸感”的文字。
+
+## 核心写作准则
+1. **强制降噪（Word Pruning）**：
+   - 严禁连续使用三个以上的形容词。
+   - 严禁使用“如、像、宛若”等初级比喻句（除非极度必要）。
+   - 剔除 AI 常用词：星云、注脚、涟漪、半透明、涟漪、褶皱、流转、漫长。
+2. **动作驱动叙事（Action-Driven）**：
+   - 不要描写“她很悲伤”；要描写“她低头擦掉指尖的湿痕，避开了人群”。
+   - 不要描写“华丽的痛苦”；要描写“具体的挣扎”。
+3. **物理分段要求**：
+   - 【Bio 必须分为 3-4 段】：每段不超过 150 字，段落间必须有清晰的逻辑递进（过去 -> 转变 -> 现状/冲突）。
+   - 【Appearance 必须分为 2 段】：一段写整体印象，一段写令人过目不忘的局部细节。
+
+## 逻辑校准
+- **力量的代价**：如果角色压抑力量，请写出这种压抑带来的【生理负担】（如手抖、冷汗、失眠），而不是华丽的辞藻。
+- **环境呼应**：世界观（${race}, ${job}）应通过角色的破旧斗篷、粗糙的掌心或具体的职业习惯来体现。
+
+## 输出格式
+请仅返回一个合法的 JSON 对象，严禁包含任何 Markdown 代码块。
+{
+  "bio": "在此处填写润色后的背景故事。要求：段落之间使用 \\n\\n 进行显式分段，文字要干练、有生活气息。",
+  "appearance": "在此处填写润色后的外貌描写。要求：段落之间使用 \\n\\n 分段，拒绝空洞的比喻，强调质感。"
+}`;
   
   // --- 用户指令 (User Prompt) ---
-  const userPrompt = `【原始设定】
-  种族：${race || '未知'}
-  性格：${personality || '未知'}
-  
-  【待润色文本】
-  ${bio || '（暂无详细背景，请根据设定创作一段）'}`;
+  const userPrompt = `
+  【待润色背景故事】
+  ${bio || '（暂无详细背景，请根据设定创作一段）'}
+
+  【待润色外貌描写】
+  ${appearance || '（暂无详细外貌，请根据设定创作一段）'}
+
+  【变量注入】
+  姓名：${name}, 职业：${job}, 种族：${race}, 性格：${personality}。
+  `;
 
   try {
-    const polishedText = await callAI(systemPrompt, userPrompt);
-    return polishedText;
+    const aiOutput = await callAI(systemPrompt, userPrompt);
+    
+    // 解析 JSON
+    let cleanData = aiOutput.trim();
+    if (cleanData.startsWith('```json')) {
+        cleanData = cleanData.replace(/^```json/, '').replace(/```$/, '');
+    } else if (cleanData.startsWith('```')) {
+        cleanData = cleanData.replace(/^```/, '').replace(/```$/, '');
+    }
+    
+    return JSON.parse(cleanData);
+
   } catch (error) {
     console.error('Polish Bio Failed:', error);
-    return bio; // 失败则返回原文本，避免清空用户输入
+    // 失败则返回原文本
+    return { bio, appearance }; 
   }
 }
 

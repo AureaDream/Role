@@ -103,9 +103,12 @@
         </div>
         
         <!-- Mobile FAB -->
-        <div class="fab-container">
+        <div class="fab-container d-flex align-items-center gap-2">
            <button id="saveCharBtn" class="btn btn-primary rounded-pill px-4 shadow-lg">保存设定</button>
            <button id="aiPolishBtn" class="btn btn-warning rounded-pill px-4 shadow-lg text-white">AI 润色</button>
+           <button type="button" class="btn btn-outline-info rounded-circle shadow-lg d-flex align-items-center justify-content-center" style="width:40px;height:40px;padding:0;" onclick="showAlert('【制作者给用户的一些规则提醒】<br><br>9999')">
+             <i class="bi bi-question-lg"></i>
+           </button>
         </div>
         
         <!-- Desktop Actions (Hidden on mobile via CSS if needed, but keeping for now as secondary) -->

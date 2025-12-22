@@ -27,6 +27,20 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// --- Multer 调试中间件 ---
+// 包装 upload.single 以捕获错误并打印日志
+const uploadMiddleware = (req, res, next) => {
+  console.log(`[Multer] Start processing upload for ${req.path}`);
+  upload.single('image')(req, res, (err) => {
+    if (err) {
+      console.error('[Multer] Error:', err);
+      return res.status(400).json({ error: '文件上传失败: ' + err.message });
+    }
+    console.log('[Multer] Success. File:', req.file ? req.file.filename : 'None', 'Body keys:', Object.keys(req.body));
+    next();
+  });
+};
+
 // 移除旧的内存存储配置
 // const storage = multer.memoryStorage();
 // const upload = multer({ storage: storage });
@@ -68,9 +82,10 @@ router.get('/my', authenticateToken, async (req, res) => {
 // --- API: 创建角色 (捏人) ---
 // 权限：需要登录 (authenticateToken)
 // 使用 multer 处理图片上传 (字段名: image)
-router.post('/add', authenticateToken, upload.single('image'), async (req, res) => {
+router.post('/add', authenticateToken, uploadMiddleware, async (req, res) => {
   try {
     const data = req.body;
+    console.log('Creating character for user:', req.user.id);
     // 1. Token 解析：从鉴权中间件解析出的 user 对象中获取 userId
     const userId = req.user.id;
 
@@ -131,9 +146,10 @@ router.post('/add', authenticateToken, upload.single('image'), async (req, res) 
 
 // --- API: 更新角色 ---
 // 权限：需要登录且是角色的拥有者
-router.put('/update/:id', authenticateToken, upload.single('image'), async (req, res) => {
+router.put('/update/:id', authenticateToken, uploadMiddleware, async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`Updating character ${id} for user ${req.user.id}`);
     const data = req.body;
     const userId = req.user.id;
 
