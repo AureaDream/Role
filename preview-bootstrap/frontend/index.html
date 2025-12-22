@@ -38,7 +38,12 @@
 
   <main class="container my-4">
     <div class="card mb-3">
-      <div class="card-header">热门 OC 推荐</div>
+      <div class="card-header d-flex justify-content-between align-items-center">
+         <span>热门 OC 推荐</span>
+         <button class="btn btn-sm btn-link text-decoration-none" data-bs-toggle="modal" data-bs-target="#manifestoModal">
+           <i class="bi bi-envelope-paper me-1"></i>致创作者
+         </button>
+      </div>
       <div class="card-body">
         <div id="popularCarousel" class="carousel slide" data-bs-ride="carousel">
           <div class="carousel-inner"></div>

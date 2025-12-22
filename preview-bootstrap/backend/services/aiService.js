@@ -111,9 +111,10 @@ async function buildChar(inputData) {
 /**
  * 润色背景故事 (AI Polish)
  * @param {Object} context - 角色上下文 { name, race, job, bio, personality, appearance }
+ * @param {string} username - 当前用户名 (用于版权声明)
  * @returns {Promise<Object>} - 润色后的文本对象 { bio, appearance }
  */
-async function polishBio(context) {
+async function polishBio(context, username) {
   const { name, race, job, bio, personality, appearance } = context;
   
   // --- 系统预设 (System Prompt) ---
@@ -167,7 +168,13 @@ async function polishBio(context) {
         cleanData = cleanData.replace(/^```/, '').replace(/```$/, '');
     }
     
-    return JSON.parse(cleanData);
+    const result = JSON.parse(cleanData);
+    
+    // 注入版权声明
+    const copyright = `\n\n©由 ${username || '流金梦坊用户'} 创作于流金梦坊，未经许可禁止转载`;
+    if (result.bio) result.bio += copyright;
+    
+    return result;
 
   } catch (error) {
     console.error('Polish Bio Failed:', error);
@@ -293,9 +300,10 @@ async function writeStory(chars, scene) {
  * @param {Array} chars - 角色列表
  * @param {string} scene - 场景
  * @param {Function} onToken - 接收每个 token 的回调 (text) => void
+ * @param {string} username - 创建者用户名
  * @returns {Promise<string>} - 返回完整文本 (用于最终保存)
  */
-async function writeStoryStream(chars, scene, onToken) {
+async function writeStoryStream(chars, scene, onToken, username) {
   // 复用 writeStory 中的 Prompt 构建逻辑
   const charContext = chars.map((c, index) => {
     const tagsStr = c.tags && c.tags.length > 0 
@@ -375,7 +383,14 @@ async function writeStoryStream(chars, scene, onToken) {
         }
       });
 
-      response.data.on('end', () => resolve(fullText));
+      response.data.on('end', () => {
+        // 注入版权声明
+        const copyright = `\n\n©由 ${username || '流金梦坊用户'} 创作于流金梦坊，未经许可禁止转载`;
+        fullText += copyright;
+        if (onToken) onToken(copyright);
+        
+        resolve(fullText);
+    });
       response.data.on('error', (err) => reject(err));
     });
 
@@ -385,4 +400,47 @@ async function writeStoryStream(chars, scene, onToken) {
   }
 }
 
-module.exports = { callAI, buildChar, writeStory, writeStoryStream, polishBio, suggestProfile };
+/**
+ * 故事头脑风暴 (Brainstorm Story Options)
+ * @param {Array} chars - 角色列表
+ * @param {string} keywords - 场景关键词
+ * @returns {Promise<Array>} - 返回 3 个选项数组
+ */
+async function brainstormStory(chars, keywords) {
+  const charInfo = chars.map(c => `${c.name}(${c.personality})`).join(' 与 ');
+  
+  const systemPrompt = `
+    # Role: 剧情架构师 (Story Architect)
+    你不是直接写故事的人，你是为作者提供灵感的助手。
+    请根据用户提供的角色和关键词，构思 3 个截然不同的【逻辑冲突点】或【命运走向】。
+    
+    ## 要求
+    1. 每个选项不超过 30 字。
+    2. 必须包含具体的冲突或行动指引。
+    3. 选项风格要多样化（例如：一个治愈向、一个刀子向、一个悬疑向）。
+    
+    ## 输出格式
+    请仅返回一个合法的 JSON 数组，严禁包含 Markdown 代码块。
+    ["选项一内容...", "选项二内容...", "选项三内容..."]
+  `;
+  
+  const userPrompt = `角色：${charInfo}\n关键词：${keywords}\n请提供 3 个灵感选项。`;
+  
+  try {
+    const aiOutput = await callAI(systemPrompt, userPrompt);
+    let cleanData = aiOutput.trim();
+    if (cleanData.startsWith('```json')) cleanData = cleanData.replace(/^```json/, '').replace(/```$/, '');
+    else if (cleanData.startsWith('```')) cleanData = cleanData.replace(/^```/, '').replace(/```$/, '');
+    
+    return JSON.parse(cleanData);
+  } catch (e) {
+    console.error('Brainstorm Failed:', e);
+    return [
+      `试图理解${keywords}背后的真相，却发现了惊人的秘密。`,
+      `在${keywords}的氛围中，两人因观念不同而爆发了激烈的争吵。`,
+      `虽然面临${keywords}的困境，但他们选择默默守护彼此。`
+    ];
+  }
+}
+
+module.exports = { callAI, buildChar, writeStory, writeStoryStream, polishBio, suggestProfile, brainstormStory };

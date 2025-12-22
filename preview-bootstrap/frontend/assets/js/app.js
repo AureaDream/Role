@@ -8,11 +8,17 @@ function getImgUrl(path) {
   if (!path) return 'https://placehold.co/400?text=No+Image';
   if (path.startsWith('http')) return path;
   
-  // 修复：自动检测并拼接 /uploads/ 前缀
-  // 如果数据库存的是 "123.jpg"，需要拼成 "/uploads/123.jpg" 再拼 HOST_BASE
-  // 如果存的是 "/uploads/123.jpg"，直接拼 HOST_BASE
+  // 如果路径已经是 /api 开头 (view 接口)，直接返回完整 URL
+  if (path.startsWith('/api')) {
+      return `${HOST_BASE}${path}`;
+  }
+  
+  // 兼容旧逻辑：如果只是文件名或 uploads 路径
   let cleanPath = path;
   if (!cleanPath.startsWith('/') && !cleanPath.includes('uploads')) {
+      // 这里的假设是：如果只是文件名，且没有被转换为 API URL，说明可能是旧数据
+      // 或者在某些列表接口返回了 raw filename
+      // 最好是尽量让后端返回完整 API URL
       cleanPath = `/uploads/${cleanPath}`;
   }
   
@@ -126,6 +132,58 @@ async function initHome() {
 
     // 获取后端动态数据 (OC 广场列表)
     const charList = await request('/char/public');
+
+    // --- 热门 OC 推荐渲染逻辑 ---
+    try {
+        const hotList = await request('/char/hot');
+        const carouselInner = document.querySelector('#popularCarousel .carousel-inner');
+        if (carouselInner && hotList.length > 0) {
+            carouselInner.innerHTML = hotList.map((char, index) => {
+                const imgUrl = getImgUrl(char.image || char.avatar);
+                // 检查是否需要水印 (假设热门接口返回了 isWatermarkRequired 字段)
+                // 如果后端没有返回该字段，这里可能需要补充。暂且假设有。
+                const watermarkHtml = char.isWatermarkRequired ? `
+                  <div class="watermark-overlay">
+                    <div class="watermark-text">COPYRIGHT PROTECTED</div>
+                  </div>
+                ` : '';
+
+                return `
+                <div class="carousel-item ${index === 0 ? 'active' : ''}">
+                    <div class="d-flex justify-content-center">
+                        <div class="card shadow-sm" style="max-width: 600px; width: 100%;" onclick="location.href='pages/detail.html?id=${char.id}'">
+                            <div class="row g-0">
+                                <div class="col-md-5 position-relative overflow-hidden">
+                                    <img src="${imgUrl}" class="img-fluid rounded-start h-100 object-fit-cover" alt="${char.name}" style="min-height: 250px;">
+                                    ${watermarkHtml}
+                                    <!-- 热度值角标 -->
+                                    <div class="position-absolute top-0 start-0 m-2 badge bg-warning text-dark bg-gradient shadow" style="z-index: 3;">
+                                        🔥 热度: ${char.heatValue}
+                                    </div>
+                                </div>
+                                <div class="col-md-7">
+                                    <div class="card-body d-flex flex-column h-100">
+                                        <h5 class="card-title fw-bold">${char.name}</h5>
+                                        <p class="card-text text-muted small flex-grow-1">${char.description ? char.description.slice(0, 80) + '...' : '暂无描述'}</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <small class="text-muted"><i class="bi bi-heart-fill text-danger"></i> ${char.likes}</small>
+                                            <button class="btn btn-sm btn-outline-primary">查看详情</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        } else {
+            // 如果没有热门数据，隐藏卡片或显示提示
+            document.querySelector('#popularCarousel').closest('.card').style.display = 'none';
+        }
+    } catch (e) {
+        console.error('Load Hot OCs Failed:', e);
+    }
     
     // 渲染广场卡片
     grid.innerHTML = ''; // 清空占位
@@ -191,6 +249,15 @@ async function likeChar(id, btn) {
   // 阻止冒泡，防止触发卡片点击跳转
   if (event) event.stopPropagation();
 
+  // 尝试获取计数元素 (首页卡片结构)
+  const card = btn.closest('.card');
+  const countSpan = card ? card.querySelector('span[title="点赞"]') : null;
+  let originalCountText = '';
+  
+  if (countSpan) {
+      originalCountText = countSpan.innerHTML;
+  }
+
   try {
     // 1. 获取当前状态 (根据是否包含 active 类)
     const isActive = btn.classList.contains('active');
@@ -200,18 +267,26 @@ async function likeChar(id, btn) {
       // 如果当前是激活状态 -> 变为非激活 (移除 active，图标变空心)
       btn.classList.remove('active');
       btn.innerHTML = `<i class="bi bi-hand-thumbs-up"></i>`;
+      // 乐观减少计数
+      if (countSpan) {
+          const currentCount = parseInt(countSpan.textContent.trim()) || 0;
+          countSpan.innerHTML = `<i class="bi bi-heart-fill text-danger me-1"></i>${Math.max(0, currentCount - 1)}`;
+      }
     } else {
       // 如果当前是非激活状态 -> 变为激活 (添加 active，图标变实心)
       btn.classList.add('active');
       btn.innerHTML = `<i class="bi bi-hand-thumbs-up-fill"></i>`;
+      // 乐观增加计数
+      if (countSpan) {
+          const currentCount = parseInt(countSpan.textContent.trim()) || 0;
+          countSpan.innerHTML = `<i class="bi bi-heart-fill text-danger me-1"></i>${currentCount + 1}`;
+      }
     }
 
     // 3. 发送网络请求
     const res = await request(`/char/like/${id}`, { method: 'POST' });
     
     // 4. 状态一致性检查 (如果后端返回状态不一致，回滚 UI)
-    // res.isLiked 是后端最新的真实状态
-    // !isActive 是我们期望的新状态
     if (res.isLiked !== !isActive) {
        console.warn('UI state mismatch, reverting...');
        if (res.isLiked) {
@@ -222,6 +297,11 @@ async function likeChar(id, btn) {
          btn.innerHTML = `<i class="bi bi-hand-thumbs-up"></i>`;
        }
     }
+
+    // 5. 使用后端返回的准确计数更新
+    if (res.likeCount !== undefined && countSpan) {
+        countSpan.innerHTML = `<i class="bi bi-heart-fill text-danger me-1"></i>${res.likeCount}`;
+    }
     
   } catch (e) {
     if (e.message.includes('401') || e.message.includes('403') || e.message.includes('令牌') || e.message.includes('Token')) {
@@ -231,14 +311,17 @@ async function likeChar(id, btn) {
     } else {
       alert(e.message || '点赞失败');
     }
-    // 发生错误，回滚 UI (由于无法获知原状态，这里只能简单移除 active，或者重新加载列表)
-    // 简单回滚：如果是 active，移除；反之亦然 (假设失败意味着操作未生效)
+    // 发生错误，回滚 UI
     if (btn.classList.contains('active')) {
        btn.classList.remove('active');
        btn.innerHTML = `<i class="bi bi-hand-thumbs-up"></i>`;
     } else {
        btn.classList.add('active');
        btn.innerHTML = `<i class="bi bi-hand-thumbs-up-fill"></i>`;
+    }
+    // 回滚计数
+    if (countSpan && originalCountText) {
+        countSpan.innerHTML = originalCountText;
     }
   }
 }
@@ -251,14 +334,21 @@ window.likeChar = likeChar; // 暴露给全局
     const selB = document.querySelector('#selectB');
     
     // 初始化下拉框数据 (获取所有角色)
-    request('/char/public').then(list => {
+    // 优先使用 available 接口获取（含联动角色），如果失败降级为 public
+    request('/char/available').then(list => {
+      fillSelects(list);
+    }).catch(() => {
+        request('/char/public').then(list => fillSelects(list));
+    });
+
+    function fillSelects(list) {
       if (!selA) return;
       list.forEach(o => {
         const opt = `<option value="${o.id}">${o.name}</option>`;
         selA.insertAdjacentHTML('beforeend', opt);
         selB.insertAdjacentHTML('beforeend', opt);
       });
-    });
+    }
 
     // 绑定“保存设定”按钮 (创建/更新 OC)
     const saveBtn = document.querySelector('#saveCharBtn');
@@ -283,6 +373,14 @@ window.likeChar = likeChar; // 暴露给全局
         document.querySelector('#charAppearance').value = char.appearance || '';
         document.querySelector('#charBio').value = char.description || char.bio || '';
         
+        // 恢复水印开关
+        if (char.isWatermarkRequired) {
+            const wSwitch = document.querySelector('#watermarkSwitch');
+            const wCheck = document.querySelector('#watermarkCheck');
+            if(wSwitch) wSwitch.checked = true;
+            if(wCheck) wCheck.checked = true;
+        }
+
         // 恢复图片预览
         if (char.image) {
           document.querySelector('#charAvatarPreview').src = getImgUrl(char.image);
@@ -427,6 +525,8 @@ window.likeChar = likeChar; // 暴露给全局
       const appearance = document.querySelector('#charAppearance').value;
       const bio = document.querySelector('#charBio').value;
       const avatarFile = document.querySelector('#charAvatarInput').files[0];
+      // 获取水印选项 (优先使用新开关)
+      const isWatermarkRequired = document.querySelector('#watermarkSwitch')?.checked || document.querySelector('#watermarkCheck')?.checked;
 
       if (!name) return alert('请输入角色姓名');
 
@@ -445,7 +545,13 @@ window.likeChar = likeChar; // 暴露给全局
       formData.append('description', bio); // 对应后端 description
       formData.append('appearance', appearance);
       formData.append('isPublic', 'true');
+      formData.append('isWatermarkRequired', isWatermarkRequired); // 发送水印选项
       
+      // 标记创作模式: 如果用户使用了 AI 辅助 (aiPolishBtn 被点击过)，则标记为 assisted，否则 manual
+      // 这里通过检查全局变量 window.hasUsedAI 来判断 (需在 aiPolishBtn 点击时设置)
+      const creationMode = window.hasUsedAI ? 'assisted' : 'manual';
+      formData.append('creationMode', creationMode);
+
       // 复杂对象需转为 JSON 字符串
       formData.append('tags', JSON.stringify(finalTags));
 
@@ -573,13 +679,23 @@ window.likeChar = likeChar; // 暴露给全局
 
     // --- AI 润色逻辑 (上下文集成版) ---
     const aiPolishBtn = document.querySelector('#aiPolishBtn');
-    aiPolishBtn?.addEventListener('click', async () => {
+    
+    // 暴露给全局以便 HTML onclick 调用
+    window.polishWithInstruction = async (instruction) => {
+        const btn = document.querySelector('#aiPolishBtn');
+        if (btn) btn.click(instruction); // 触发主逻辑，传入 instruction
+    };
+
+    aiPolishBtn?.addEventListener('click', async (evtOrInstruction) => {
       const name = document.querySelector('#charName').value;
       const race = document.querySelector('#charRace').value;
       const job = document.querySelector('#charJob').value;
       const bio = document.querySelector('#charBio').value;
       const personality = document.querySelector('#charPersonality').value;
       const appearance = document.querySelector('#charAppearance').value;
+
+      // 判断是否是指令调用 (如果第一个参数是字符串，说明是 onclick 传来的)
+      const instruction = typeof evtOrInstruction === 'string' ? evtOrInstruction : '';
 
       if (!name) { showAlert('请先输入角色姓名'); return; }
 
@@ -600,7 +716,7 @@ window.likeChar = likeChar; // 暴露给全局
         // 调用新的润色接口
         const res = await request('/char/polish', {
           method: 'POST',
-          body: { charContext }
+          body: { charContext, instruction }
         });
 
         // 处理返回的 JSON 对象 { bio, appearance }
@@ -625,7 +741,7 @@ window.likeChar = likeChar; // 暴露给全局
                 target.value = current;
                 if (syncTarget) syncTarget.value = current;
                 i++;
-                requestAnimationFrame(step); // 使用 RAF 替代 setTimeout 获得更流畅效果
+                requestAnimationFrame(step); 
               }
             }
             step();
@@ -633,6 +749,9 @@ window.likeChar = likeChar; // 暴露给全局
 
           if (newBio) animateText(bioTarget, newBio, focusBioTarget);
           if (newAppearance) animateText(appTarget, newAppearance);
+
+          // 显示反馈气泡
+          document.querySelector('#polishFeedback')?.classList.remove('d-none');
 
           // 动画结束后恢复按钮
           setTimeout(() => {
@@ -733,7 +852,112 @@ async function initDetail() {
     if (traitsEl) {
       traitsEl.textContent = personalityTag ? personalityTag.value : '暂无';
     }
+
+    // 版权标识控制与防复制增强
+    if (oc.isWatermarkRequired) {
+        document.querySelector('#copyrightBadge').classList.remove('d-none');
+        
+        // 增强防复制逻辑 (覆盖详细设定区域的所有文本)
+        // 目标：详细设定卡片的 body (使用 ID 选择器)
+        const detailContainer = document.querySelector('#detailCard .card-body');
+        
+        if (detailContainer) {
+            // 1. CSS 强力覆盖 (使用 style 注入以覆盖所有子元素)
+            // 不仅给容器加，还注入全局样式强制覆盖其下所有子元素
+            detailContainer.style.userSelect = 'none';
+            detailContainer.style.webkitUserSelect = 'none';
+            detailContainer.classList.add('no-select');
+            
+            // 动态创建 style 标签来强制覆盖子元素 (因为 user-select 虽然继承，但可能被子元素特定样式覆盖)
+            const style = document.createElement('style');
+            style.innerHTML = `
+                #detailCard .card-body * {
+                    user-select: none !important;
+                    -webkit-user-select: none !important;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // 2. JS 事件拦截
+            const preventAction = (e) => { 
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                return false; 
+            };
+            
+            // 拦截更多事件
+            const events = ['copy', 'cut', 'contextmenu', 'selectstart', 'dragstart', 'keydown', 'mousedown'];
+            events.forEach(evt => {
+                 detailContainer.addEventListener(evt, (e) => {
+                     // 针对键盘事件的特殊处理
+                     if (evt === 'keydown') {
+                         if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'a')) {
+                             preventAction(e);
+                         }
+                         return;
+                     }
+                     // 针对鼠标按下，如果是右键也拦截
+                     if (evt === 'mousedown' && e.button === 2) {
+                         preventAction(e);
+                         return;
+                     }
+                     
+                     preventAction(e);
+                 }, true); // 使用捕获阶段 (true) 确保优先处理
+            });
+            
+            // 额外：全局监听键盘，当鼠标在区域内时拦截 (防止先聚焦再按键)
+            detailContainer.addEventListener('mouseenter', () => {
+                 document.addEventListener('keydown', preventCopyGlobal);
+            });
+            detailContainer.addEventListener('mouseleave', () => {
+                 document.removeEventListener('keydown', preventCopyGlobal);
+            });
+            
+            function preventCopyGlobal(e) {
+                 if ((e.ctrlKey || e.metaKey) && (e.key === 'c' || e.key === 'a')) {
+                     e.preventDefault();
+                     e.stopPropagation();
+                 }
+            }
+        }
+    }
     
+    // 原创性标识
+    if (oc.creationMode === 'manual') {
+        document.querySelector('#originalityBadge')?.classList.remove('d-none');
+    }
+
+    // 创作演化史 (History)
+    if (oc.history && Array.isArray(oc.history) && oc.history.length > 0) {
+        // 在详情卡片下方，详细设定上方插入历史记录
+        const historyHtml = `
+          <div class="card mt-3">
+            <div class="card-header bg-light border-0 fw-bold text-secondary">
+              <i class="bi bi-clock-history me-2"></i>创作演化路径
+            </div>
+            <div class="card-body">
+              <div class="timeline">
+                ${oc.history.map((h, i) => `
+                  <div class="d-flex mb-3 position-relative">
+                    <div class="flex-shrink-0 me-3">
+                      <div class="rounded-circle bg-${h.action === 'create' ? 'success' : 'primary'} text-white d-flex align-items-center justify-content-center" style="width:32px;height:32px;font-size:14px;">
+                        ${i + 1}
+                      </div>
+                      ${i < oc.history.length - 1 ? '<div class="vr position-absolute start-0 ms-3 mt-1 h-100" style="left:16px;z-index:-1;opacity:0.2;"></div>' : ''}
+                    </div>
+                    <div>
+                      <div class="small text-muted">${new Date(h.timestamp).toLocaleString()}</div>
+                      <div class="fw-semibold">${h.note || (h.action === 'create' ? '角色诞生' : '设定修订')}</div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+        document.querySelector('.card.mt-3').insertAdjacentHTML('beforebegin', historyHtml);
+    }
     // 优化：详细设定区域背景
     document.querySelector('.card.mt-3 .card-body').classList.add('detail-section');
     
@@ -782,6 +1006,14 @@ async function initDetail() {
       
       // 更新点赞状态 (Square Button Logic)
       const isLiked = res.isLiked;
+      
+      // 更新评论数 Badge
+      const countBadge = document.querySelector('#commentCountBadge');
+      if (countBadge) {
+          // 优先使用后端返回的准确计数，如果未返回则回退到列表长度
+          const count = res.commentsCount !== undefined ? res.commentsCount : res.commentList.length;
+          countBadge.textContent = count;
+      }
       
       if (isLiked) {
         likeBtn.classList.add('active');
@@ -839,18 +1071,31 @@ async function initDetail() {
       if (isActive) {
         likeBtn.classList.remove('active');
         likeBtn.innerHTML = `<i class="bi bi-hand-thumbs-up"></i>`;
+        if (likeCountEl) {
+            const current = parseInt(likeCountEl.textContent) || 0;
+            likeCountEl.textContent = Math.max(0, current - 1);
+        }
       } else {
         likeBtn.classList.add('active');
         likeBtn.innerHTML = `<i class="bi bi-hand-thumbs-up-fill"></i>`;
+        if (likeCountEl) {
+            const current = parseInt(likeCountEl.textContent) || 0;
+            likeCountEl.textContent = current + 1;
+        }
       }
 
       // 3. 发送请求
       const res = await request(`/char/like/${id}`, { method: 'POST' });
       
-      // 4. 校准
+      // 4. 校准与更新
       if (res.isLiked !== !isActive) {
          console.warn('Like status mismatch, reverting UI');
          loadSocial(); 
+      } else {
+         // 即使状态一致，也同步最新的点赞数
+         if (res.likeCount !== undefined && likeCountEl) {
+             likeCountEl.textContent = res.likeCount;
+         }
       }
       
     } catch (e) {
@@ -863,6 +1108,47 @@ async function initDetail() {
       }
       loadSocial();
     }
+  });
+
+  // --- 联动申请逻辑 ---
+  const applyBtn = document.querySelector('#applyBtn');
+  const applyModalEl = document.getElementById('applyModal');
+  const confirmApplyBtn = document.getElementById('confirmApplyBtn');
+  const agreementCheck = document.getElementById('agreementCheck');
+  let applyModal;
+
+  if (applyModalEl) {
+      applyModal = new bootstrap.Modal(applyModalEl);
+  }
+
+  applyBtn?.addEventListener('click', () => {
+      applyModal?.show();
+  });
+
+  confirmApplyBtn?.addEventListener('click', async () => {
+      if (!agreementCheck.checked) {
+          alert('请勾选“我承诺尊重对方 OC 版权”协议');
+          return;
+      }
+      
+      try {
+          confirmApplyBtn.disabled = true;
+          confirmApplyBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 提交中...';
+          
+          // 发送申请 (假设接口 POST /link/request)
+          await request('/link/request', {
+              method: 'POST',
+              body: { targetCharId: id }
+          });
+          
+          alert('✅ 申请已提交，请等待对方审批');
+          applyModal.hide();
+      } catch (e) {
+          alert('申请失败: ' + e.message);
+      } finally {
+          confirmApplyBtn.disabled = false;
+          confirmApplyBtn.textContent = '提交申请';
+      }
   });
 
   // 3. 发布评论

@@ -4,7 +4,7 @@ const Story = require('../models/story');
 const Character = require('../models/character');
 const axios = require('axios');
 const jwt = require('jsonwebtoken'); // 引入 JWT
-const { writeStory, writeStoryStream } = require('../services/aiService');
+const { writeStory, writeStoryStream, brainstormStory } = require('../services/aiService');
 const LinkRequest = require('../models/linkrequest');
 const { Op } = require('sequelize');
 
@@ -25,6 +25,26 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
+
+// --- API: 剧情头脑风暴 (Brainstorm) ---
+router.post('/brainstorm', authenticateToken, async (req, res) => {
+  try {
+    const { charIdA, charIdB, keywords } = req.body;
+    
+    // 查询角色
+    const queryIds = [charIdA];
+    if (charIdB) queryIds.push(charIdB);
+    const chars = await Character.findAll({ where: { id: { [Op.in]: queryIds } } });
+    
+    if (chars.length === 0) return res.status(404).json({ error: 'Character not found' });
+    
+    const options = await brainstormStory(chars, keywords);
+    res.json({ options });
+  } catch (error) {
+    console.error('Brainstorm Error:', error);
+    res.status(500).json({ error: '灵感枯竭中...' });
+  }
+});
 
 // --- API: 获取我的故事集 (My Stories) ---
 // 功能：返回当前用户参与或创建的所有 AI 故事。
@@ -136,10 +156,11 @@ router.post('/create', async (req, res) => {
 
     // 3. 调用 AI 并实时推送
     // writeStoryStream 会返回完整的 storyText 用于后续保存
+    const username = req.user ? req.user.username : '匿名';
     const fullStoryText = await writeStoryStream(chars, scene, (token) => {
       // 实时推送每一个字符块
       res.write(`data: ${JSON.stringify({ chunk: token })}\n\n`);
-    });
+    }, username);
 
     // 4. 后处理与保存
     let title = scene.substring(0, 20);

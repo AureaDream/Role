@@ -74,6 +74,22 @@ const Character = sequelize.define('Character', {
     type: DataTypes.INTEGER,
     defaultValue: 0,
     comment: '点赞数'
+  },
+  commentsCount: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0,
+    comment: '评论数'
+  },
+  // --- 新增: 创作模式与历史 (Version Control) ---
+  creationMode: {
+    type: DataTypes.ENUM('manual', 'assisted'),
+    defaultValue: 'manual',
+    comment: '创作模式: manual(纯手工), assisted(AI辅助)'
+  },
+  history: {
+    type: DataTypes.JSON,
+    defaultValue: [],
+    comment: '创作演化史: [{action: "create", timestamp: Date, content: "..."}]'
   }
 }, {
   tableName: 'characters', // 强制指定表名

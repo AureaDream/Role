@@ -6,6 +6,9 @@ const { buildChar, polishBio, suggestProfile } = require('../services/aiService'
 const { exportDoc, upload } = require('../utils/fileService'); // 引入已配置好的 upload 中间件 (DiskStorage)
 // const multer = require('multer'); // 不再需要单独引入 multer
 const { Op } = require('sequelize');
+const sharp = require('sharp'); // 引入图片处理库
+const path = require('path');
+const fs = require('fs');
 
 // --- 中间件: JWT 身份验证 ---
 // 用于保护需要登录才能访问的接口 (如 /add, /update)
@@ -55,9 +58,153 @@ router.get('/public', async (req, res) => {
       order: [['createdAt', 'DESC']], // 按创建时间倒序
     });
 
-    res.json(list);
+    // 尝试获取当前用户 ID (用于判断 isLiked)
+    let currentUserId = null;
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+      const token = authHeader.split(' ')[1];
+      try {
+        const decoded = jwt.verify(token, 'secret_key_123456'); // 注意：密钥应与 authenticateToken 一致
+        currentUserId = decoded.id;
+      } catch (e) { /* Ignore */ }
+    }
+
+    // 构造返回数据 (不直接修改数据库实例，而是返回处理后的 JSON)
+    let result = list.map(c => {
+        const json = c.toJSON();
+        // 列表页也使用动态预览接口 (或者为了性能可以使用缩略图接口，这里统一用 view)
+        if (json.image && !json.image.startsWith('http')) {
+             json.image = `/api/char/view/${c.id}`;
+        }
+        return json;
+    });
+
+    if (currentUserId) {
+        const charIds = result.map(c => c.id);
+        const likes = await Like.findAll({
+            where: {
+                userId: currentUserId,
+                charId: { [Op.in]: charIds }
+            }
+        });
+        const likedCharIds = new Set(likes.map(l => l.charId));
+        
+        result = result.map(c => ({
+            ...c,
+            isLiked: likedCharIds.has(c.id)
+        }));
+    }
+
+    res.json(result);
   } catch (error) {
     console.error('获取广场角色失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// --- API: 获取热门角色 (Hot OCs) ---
+// 逻辑：近一周内的【1*点赞数+2*评论数】得出【热度值】
+router.get('/hot', async (req, res) => {
+  try {
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
+    // 1. 获取所有公开角色
+    const chars = await Character.findAll({
+      where: { isPublic: true },
+      attributes: ['id', 'name', 'description', 'image', 'likes', 'commentsCount', 'intro']
+    });
+
+    // 2. 统计近一周的点赞和评论
+    // 优化：使用聚合查询
+    const recentLikes = await Like.findAll({
+      where: { createdAt: { [Op.gt]: oneWeekAgo } },
+      attributes: ['charId', [sequelize.fn('COUNT', 'charId'), 'count']],
+      group: ['charId']
+    });
+    
+    const recentComments = await Comment.findAll({
+      where: { createdAt: { [Op.gt]: oneWeekAgo } },
+      attributes: ['charId', [sequelize.fn('COUNT', 'charId'), 'count']],
+      group: ['charId']
+    });
+
+    // 3. 构建映射
+    const likeMap = {};
+    recentLikes.forEach(l => likeMap[l.charId] = parseInt(l.dataValues.count || 0));
+    
+    const commentMap = {};
+    recentComments.forEach(c => commentMap[c.charId] = parseInt(c.dataValues.count || 0));
+
+    // 4. 计算热度并排序
+    const hotList = chars.map(c => {
+        const l = likeMap[c.id] || 0;
+        const cm = commentMap[c.id] || 0;
+        const heat = l * 1 + cm * 2;
+        
+        const json = c.toJSON();
+        // 统一使用 view 接口以支持水印和权限控制
+        if (json.image && !json.image.startsWith('http')) {
+             json.image = `/api/char/view/${c.id}`;
+        }
+
+        return {
+            ...json,
+            heatValue: heat
+        };
+    });
+
+    // 排序：热度降序 -> 总点赞降序
+    hotList.sort((a, b) => {
+        if (b.heatValue !== a.heatValue) return b.heatValue - a.heatValue;
+        return b.likes - a.likes;
+    });
+
+    // 取前 3
+    res.json(hotList.slice(0, 3));
+
+  } catch (error) {
+    console.error('获取热门角色失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// --- API: 获取可用角色 (Available OCs) ---
+// 功能：获取当前用户可用于故事生成的角色列表
+// 包括：
+// 1. 自己的角色 (My)
+// 2. 广场上的公开角色 (Public)
+// 3. 已经联动通过的角色 (Linked - Approved)
+router.get('/available', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const LinkRequest = require('../models/linkrequest');
+
+    // 1. 查找已通过的联动申请 (我是发起者，状态 approved)
+    const approvedLinks = await LinkRequest.findAll({
+      where: {
+        senderId: userId,
+        status: 'approved'
+      },
+      attributes: ['targetCharId']
+    });
+    
+    const linkedCharIds = approvedLinks.map(link => link.targetCharId);
+
+    // 2. 组合查询条件
+    const list = await Character.findAll({
+      where: {
+        [Op.or]: [
+          { isPublic: true },           // 公开的
+          { userId: userId },           // 自己的
+          { id: { [Op.in]: linkedCharIds } } // 联动的
+        ]
+      },
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(list);
+  } catch (error) {
+    console.error('获取可用角色失败:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
@@ -72,7 +219,17 @@ router.get('/my', authenticateToken, async (req, res) => {
       where: { userId },
       order: [['createdAt', 'DESC']]
     });
-    res.json(list);
+    
+    const result = list.map(c => {
+        const json = c.toJSON();
+        // 自己的角色在管理页也显示水印预览，或者可以加参数 ?raw=true 来显示原图
+        // 这里为了统一物理隔离，依然走 view 接口
+        if (json.image && !json.image.startsWith('http')) {
+             json.image = `/api/char/view/${c.id}`;
+        }
+        return json;
+    });
+    res.json(result);
   } catch (error) {
     console.error('获取我的角色失败:', error);
     res.status(500).json({ error: '服务器内部错误' });
@@ -97,8 +254,65 @@ router.post('/add', authenticateToken, uploadMiddleware, async (req, res) => {
     // 如果有上传文件，multer 会自动保存并挂载到 req.file
     let imgUrl = '';
     if (req.file) {
-        // 构造可访问的 URL 路径 (对应 app.js 中的静态托管配置)
-        imgUrl = `/uploads/${req.file.filename}`;
+        // 如果用户选择了“添加水印”，则处理图片
+        // isWatermarkRequired 来自前端 form-data
+        const isWatermarkRequired = data.isWatermarkRequired === 'true';
+        
+        if (isWatermarkRequired) {
+            try {
+                const inputPath = req.file.path;
+                const outputPath = path.join(path.dirname(inputPath), `wm-${req.file.filename}`);
+                
+                // --- 水印合成逻辑 ---
+                // 计算水印位置：右下角
+                // 使用 sharp 创建一个 SVG 文本水印 (简单模拟 Logo/ID)
+                // 也可以加载一个 png logo
+                const watermarkText = `Created by User #${userId}`;
+                const svgImage = `
+                  <svg width="300" height="100">
+                    <style>
+                      .title { fill: rgba(255, 255, 255, 0.5); font-size: 24px; font-weight: bold; }
+                    </style>
+                    <text x="50%" y="50%" text-anchor="middle" class="title">${watermarkText}</text>
+                  </svg>
+                `;
+                const watermarkImg = Buffer.from(svgImage);
+
+                await sharp(inputPath)
+                    .composite([{
+                        input: watermarkImg,
+                        gravity: 'southeast', // 右下角
+                        blend: 'over'
+                    }])
+                    .toFile(outputPath);
+                
+                // 处理完成后，删除原图，将新图重命名为原图名，或者直接使用新图
+                // 为简单起见，我们更新 imgUrl 为新文件名 (虽然 multer 已经返回了 filename)
+                // 但为了保持一致性，最好是覆盖原文件
+                // 这里我们选择覆盖原文件：
+                // 1. 删除原 inputPath
+                // 2. 重命名 outputPath -> inputPath
+                
+                // Windows 下文件占用可能导致问题，所以先用 sharp 输出到 temp，再移动
+                // 上面的代码已经输出了 `wm-filename`
+                
+                // 异步等待文件释放
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                fs.unlinkSync(inputPath); // 删除无水印原图
+                fs.renameSync(outputPath, inputPath); // 重命名带水印图为原文件名
+                
+                console.log('✅ 已为上传图片添加用户水印');
+                
+            } catch (err) {
+                console.error('❌ 水印添加失败:', err);
+                // 失败不阻断流程，继续使用原图
+            }
+        }
+
+        // 构造文件名 (不含路径，由 view 接口动态读取)
+        // 数据库只存文件名
+        imgUrl = req.file.filename;
     }
 
     // --- 标签处理 (兼容逻辑) ---
@@ -167,7 +381,27 @@ router.put('/update/:id', authenticateToken, uploadMiddleware, async (req, res) 
     // 3. 图片处理
     let imgUrl = char.image;
     if (req.file) {
-        imgUrl = `/uploads/${req.file.filename}`;
+        // 如果更新了图片，也支持添加水印
+        const isWatermarkRequired = data.isWatermarkRequired === 'true';
+        if (isWatermarkRequired) {
+             try {
+                const inputPath = req.file.path;
+                const outputPath = path.join(path.dirname(inputPath), `wm-${req.file.filename}`);
+                const watermarkText = `Updated by User #${userId}`;
+                const svgImage = `<svg width="300" height="100"><style>.title { fill: rgba(255, 255, 255, 0.5); font-size: 24px; font-weight: bold; }</style><text x="50%" y="50%" text-anchor="middle" class="title">${watermarkText}</text></svg>`;
+                const watermarkImg = Buffer.from(svgImage);
+
+                await sharp(inputPath)
+                    .composite([{ input: watermarkImg, gravity: 'southeast', blend: 'over' }])
+                    .toFile(outputPath);
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+                fs.unlinkSync(inputPath);
+                fs.renameSync(outputPath, inputPath);
+            } catch (err) { console.error('水印失败', err); }
+        }
+        // 仅存储文件名
+        imgUrl = req.file.filename;
     }
 
     // 4. 处理标签
@@ -179,7 +413,7 @@ router.put('/update/:id', authenticateToken, uploadMiddleware, async (req, res) 
     if (data.tags !== undefined && !Array.isArray(tags)) tags = [];
 
     // 5. 更新字段
-    await char.update({
+    const updateData = {
       name: data.name || char.name,
       description: data.description || char.description,
       image: imgUrl,
@@ -192,7 +426,22 @@ router.put('/update/:id', authenticateToken, uploadMiddleware, async (req, res) 
       appearance: data.appearance || char.appearance,
       personality: data.personality || char.personality,
       tags: tags !== undefined ? tags : char.tags,
+    };
+
+    // 更新历史记录
+    if (data.creationMode) updateData.creationMode = data.creationMode;
+    
+    // 追加历史
+    const currentHistory = char.history || [];
+    const historyList = Array.isArray(currentHistory) ? [...currentHistory] : [];
+    historyList.push({
+        action: 'update',
+        timestamp: new Date(),
+        note: '用户修订了设定'
     });
+    updateData.history = historyList;
+
+    await char.update(updateData);
 
     res.json({ success: true, message: '角色更新成功', data: char });
 
@@ -237,15 +486,18 @@ router.post('/generate-bio', async (req, res) => {
 });
 
 // --- API: 角色润色 (AI Polish) ---
-router.post('/polish', async (req, res) => {
+router.post('/polish', authenticateToken, async (req, res) => {
   try {
-    const { charContext } = req.body;
+    const { charContext, instruction } = req.body; // 接收 instruction
     if (!charContext) {
       return res.status(400).json({ error: 'Missing character context' });
     }
     
-    // 调用 aiService.js 中的 polishBio
-    const polishedText = await polishBio(charContext);
+    // 获取用户名
+    const username = req.user.username;
+
+    // 调用 aiService.js 中的 polishBio，传入 instruction
+    const polishedText = await polishBio(charContext, username, instruction);
     
     res.json({ polishedText });
   } catch (error) {
@@ -335,6 +587,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
 // 功能：增加指定 OC 的点赞数。
 // 作用：用户在广场浏览时，点击爱心即可触发，热度越高的角色越容易被推荐。
 const { Like, Comment, User } = require('../models');
+const sequelize = require('../config/database'); // 确保引入 sequelize 实例用于聚合查询
 
 router.post('/like/:id', authenticateToken, async (req, res) => {
   try {
@@ -410,6 +663,12 @@ router.post('/comment/:id', authenticateToken, async (req, res) => {
       content: content.trim()
     });
 
+    // 增加评论计数
+    await char.increment('commentsCount', { by: 1 });
+    
+    // 重新加载以获取最新数据
+    await char.reload();
+
     // 返回带有用户信息的评论，方便前端渲染
     const commentWithUser = await Comment.findByPk(newComment.id, {
       include: [{ model: User, as: 'author', attributes: ['username', 'id'] }]
@@ -465,6 +724,7 @@ router.get('/:id/social', async (req, res) => {
 
     res.json({
       likeCount: char.likes,
+      commentsCount: char.commentsCount, // 显式返回 commentsCount
       isLiked: isLiked,
       commentList: commentList
     });
@@ -474,6 +734,86 @@ router.get('/:id/social', async (req, res) => {
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
+
+// --- API: 动态预览图片 (View Image with Watermark) ---
+// 功能：读取私有目录的原图，实时叠加网格水印后返回
+// 作用：防止盗图，前端只能通过此接口查看图片
+router.get('/view/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // 1. 查找角色获取文件名
+        const char = await Character.findByPk(id);
+        if (!char || !char.image) {
+            return res.status(404).send('Image not found');
+        }
+
+        // 数据库中可能存的是 "filename.jpg" 或 "/uploads/filename.jpg"
+        // 需要提取纯文件名
+        let filename = char.image;
+        if (filename.includes('/')) {
+            filename = path.basename(filename);
+        }
+
+        // 2. 构造物理路径
+        // 假设 private_uploads 在 utils/fileService.js 中定义为 ../private_uploads
+        const UPLOAD_DIR = path.join(__dirname, '../../backend/private_uploads');
+        const filePath = path.join(UPLOAD_DIR, filename);
+
+        if (!fs.existsSync(filePath)) {
+            // 尝试去 public/uploads 找 (兼容旧数据)
+            const publicPath = path.join(__dirname, '../../backend/public/uploads', filename);
+            if (fs.existsSync(publicPath)) {
+                 // 如果是旧图片，直接返回流 (或也加水印)
+                 // 为了统一体验，这里也尝试加水印
+                 return processAndSendImage(publicPath, res);
+            }
+            return res.status(404).send('File not found on server');
+        }
+
+        // 3. 处理并返回
+        await processAndSendImage(filePath, res);
+
+    } catch (error) {
+        console.error('图片预览失败:', error);
+        res.status(500).send('Error processing image');
+    }
+});
+
+// 辅助函数：加网格水印并流式返回
+async function processAndSendImage(filePath, res) {
+    try {
+        // 构造全屏平铺的网格水印
+        // SVG 单个单元格，由 Sharp 进行 tile 平铺
+        const gridSvg = `
+            <svg width="240" height="240" xmlns="http://www.w3.org/2000/svg">
+                <text x="50%" y="50%" font-size="24" font-weight="bold" fill="rgba(255,255,255,0.5)" transform="rotate(-30 120 120)" text-anchor="middle" dominant-baseline="middle">
+                    仅供展示 禁止盗用
+                </text>
+            </svg>
+        `;
+        const watermarkImg = Buffer.from(gridSvg);
+
+        // 设置响应头
+        res.type('image/jpeg'); // 默认转为 jpeg 输出，或者根据原图类型
+
+        // Sharp 管道
+        const pipeline = sharp(filePath)
+            .resize(800, null, { withoutEnlargement: true }) // 限制最大宽度优化性能
+            .composite([{
+                input: watermarkImg,
+                tile: true, // 平铺水印
+                blend: 'over'
+            }])
+            .jpeg({ quality: 80 }); // 压缩质量
+
+        pipeline.pipe(res);
+
+    } catch (e) {
+        console.error('Sharp error:', e);
+        res.status(500).end();
+    }
+}
 
 // --- API: 获取角色详情 ---
 // 功能：获取单个角色的详细信息
@@ -493,11 +833,13 @@ router.get('/:id', async (req, res) => {
     }
 
     // 处理图片路径
-    // 如果数据库只存了文件名 (如 "123.jpg")，补全为 "/uploads/123.jpg"
-    // 如果已经是 "/uploads/..." 或 "http..." 则保持不变
+    // 逻辑变更：不再返回静态路径，而是返回动态预览接口
     let imgUrl = char.image;
-    if (imgUrl && !imgUrl.startsWith('/') && !imgUrl.startsWith('http')) {
-      imgUrl = `/uploads/${imgUrl}`;
+    if (imgUrl) {
+        // 无论数据库存的是什么，都转换为 view 接口
+        // 这样前端 getImgUrl 就不需要改太多，或者前端直接用这个 url
+        // 假设 imgUrl 是文件名
+        imgUrl = `/api/char/view/${char.id}`;
     }
     
     // 构造返回数据 (不直接修改数据库实例，而是返回处理后的 JSON)

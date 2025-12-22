@@ -30,6 +30,12 @@
         <img id="avatar" class="rounded" style="width:140px;height:140px;object-fit:cover;" />
         <div>
           <div id="name" class="h5 fw-bold"></div>
+          <div id="copyrightBadge" class="badge rounded-pill text-dark bg-warning border border-warning shadow-sm mb-2 d-none" style="background: linear-gradient(135deg, #FFD700, #ffc800);">
+            <i class="bi bi-shield-fill-check me-1"></i>版权受保护
+          </div>
+          <div id="originalityBadge" class="badge rounded-pill text-white bg-primary border border-primary shadow-sm mb-2 ms-1 d-none" style="background: linear-gradient(135deg, #850dfd, #5a0aca);">
+            <i class="bi bi-patch-check-fill me-1"></i>未使用AI辅助创作
+          </div>
           <div id="props" class="caps mt-2"></div>
         </div>
         <div class="ms-auto d-flex gap-2 align-items-center">
@@ -43,25 +49,25 @@
       </div>
     </div>
 
-    <div class="card mt-3">
+    <div id="detailCard" class="card mt-3">
       <div class="card-header">详细设定</div>
       <div class="card-body">
         <div class="row g-3">
           <div class="col-12"><div class="fw-semibold">外貌</div><p id="appearance" class="text-muted mb-0"></p></div>
           <div class="col-12"><div class="fw-semibold">性格</div><p id="traits" class="text-muted mb-0"></p></div>
-          <div class="col-12"><div class="fw-semibold">背景故事</div><p id="background" class="text-muted mb-0"></p></div>
+          <div class="col-12"><div class="fw-semibold">背景故事</div><p id="background" class="text-muted mb-0 no-select" oncontextmenu="return false;"></p></div>
           <div class="col-12"><div class="fw-semibold">标签</div><div id="tags" class="caps mt-2"></div></div>
         </div>
       </div>
     </div>
 
     <div class="card mt-3">
-      <div class="card-header">互动区</div>
+      <div class="card-header">互动区 <span id="commentCountBadge" class="badge bg-secondary ms-1">0</span></div>
       <div class="card-body">
         <div class="d-flex gap-2 mb-2">
           <input id="commentInput" class="form-control" placeholder="留下你的评论" />
           <button id="postBtn" class="btn btn-primary">发布</button>
-          <button id="applyBtn" class="btn btn-success">申请联动</button>
+          <button id="applyBtn" class="btn btn-purple" style="width: auto; padding-left: 20px; padding-right: 20px;">申请联动</button>
         </div>
         <ul id="commentList" class="list-group"></ul>
       </div>
@@ -72,8 +78,17 @@
     <div class="modal-dialog">
       <div class="modal-content">
         <div class="modal-header"><h5 class="modal-title">申请联动</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">是否申请与该 OC 进行联动？</div>
-        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button><button type="button" class="btn btn-success" data-bs-dismiss="modal">提交申请</button></div>
+        <div class="modal-body">
+          <p>是否申请与该 OC 进行联动？</p>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="agreementCheck">
+            <label class="form-check-label small" for="agreementCheck">我承诺尊重对方 OC 版权，仅在授权范围内进行演绎</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-success" id="confirmApplyBtn">提交申请</button>
+        </div>
       </div>
     </div>
   </div>

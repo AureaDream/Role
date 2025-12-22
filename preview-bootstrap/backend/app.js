@@ -56,6 +56,8 @@ app.use('/api', (req, res) => {
 
 // 托管上传的图片 (uploads)
 // 允许通过 /uploads/xxx.jpg 访问 backend/public/uploads 下的文件
+// 注意：新的上传已改为 private_uploads，此路由仅用于兼容旧图片或头像等非敏感资源
+// 若要完全物理隔离，应移除此行或确保 private_uploads 不被托管
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
 // 托管前端页面 (frontend)

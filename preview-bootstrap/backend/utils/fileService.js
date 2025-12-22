@@ -4,18 +4,18 @@ const crypto = require('crypto');
 const multer = require('multer');
 
 // --- 配置初始化：本地文件存储 ---
-// 定义上传目录：backend/public/uploads
-// 使用 path.join 确保跨平台兼容性 (Windows/Linux 通用)
-const UPLOAD_DIR = path.join(__dirname, '../public/uploads');
+// 定义上传目录：backend/private_uploads (改为私有目录)
+// 物理隔离：确保原图保存在非公开目录，前端只能通过带有水印的接口读取图片。
+const UPLOAD_DIR = path.join(__dirname, '../private_uploads');
 
 // 打印当前物理路径，方便调试
-console.log('当前文件保存物理地址:', UPLOAD_DIR);
+console.log('当前文件保存物理地址 (Private):', UPLOAD_DIR);
 
 // 启动时自动检查并创建上传文件夹
 if (!fs.existsSync(UPLOAD_DIR)) {
   try {
     fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-    console.log(`✅ 上传目录已自动创建: ${UPLOAD_DIR}`);
+    console.log(`✅ 私有上传目录已自动创建: ${UPLOAD_DIR}`);
   } catch (err) {
     console.error('❌ 创建上传目录失败:', err);
   }

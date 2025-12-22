@@ -69,12 +69,13 @@ const checkAuth = async (req, res, next) => {
 // --- API: 发起申请 (sendRequest) ---
 // 用户 A 申请联动用户 B 的某个 OC。
 // 作用：开启一段新的社交关系，需检查是否已存在未处理的申请，避免重复打扰。
-router.post('/request', async (req, res) => {
+router.post('/request', authenticateToken, async (req, res) => {
   try {
-    const { sender, charId } = req.body;
+    const sender = req.user.id;
+    const { charId } = req.body;
 
-    if (!sender || !charId) {
-      return res.status(400).json({ error: 'Missing sender or charId' });
+    if (!charId) {
+      return res.status(400).json({ error: 'Missing charId' });
     }
 
     // 校验 OC 是否存在
@@ -84,11 +85,11 @@ router.post('/request', async (req, res) => {
     }
 
     // 禁止申请自己的 OC
-    if (String(targetChar.ownerId) === String(sender)) {
+    if (String(targetChar.userId) === String(sender)) {
       return res.status(400).json({ error: 'Cannot request link for your own character' });
     }
 
-    const receiverId = targetChar.ownerId;
+    const receiverId = targetChar.userId;
 
     // 检查是否已存在 pending 或 approved 的请求
     const existingRequest = await LinkRequest.findOne({
@@ -145,9 +146,15 @@ router.get('/my', authenticateToken, async (req, res) => {
 // --- API: 获取申请列表 (getRequests) ---
 // 拥有者查看别人发给自己的待处理申请。
 // 作用：作为‘流金梦坊’的消息中心，让用户及时处理社交互动请求。
-router.get('/requests/:userId', async (req, res) => {
+router.get('/requests/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
+    
+    // 只能查看自己的
+    if (String(req.user.id) !== String(userId)) {
+        return res.status(403).json({ error: 'Forbidden' });
+    }
+
     const { status } = req.query; // 可选过滤：?status=pending
 
     const whereClause = { receiverId: userId };
@@ -155,9 +162,6 @@ router.get('/requests/:userId', async (req, res) => {
       whereClause.status = status;
     }
 
-    // 关联查询发送者信息和目标 OC 信息，以便前端展示
-    // 注意：Sequelize 需要先定义关联关系 (Associations) 才能使用 include
-    // 这里暂时只查询 LinkRequest 本身，若需关联需在 Models 中定义 belongsTo
     const requests = await LinkRequest.findAll({
       where: whereClause,
       order: [['createdAt', 'DESC']]
@@ -174,10 +178,11 @@ router.get('/requests/:userId', async (req, res) => {
 // --- API: 处理申请 (handleRequest) ---
 // 拥有者点击‘通过’或‘拒绝’。
 // 作用：确立或终止一段社交授权，体现了用户对 OC 的绝对掌控权。
-router.put('/request/:reqId', async (req, res) => {
+router.put('/request/:reqId', authenticateToken, async (req, res) => {
   try {
     const { reqId } = req.params;
-    const { status, userId } = req.body; // userId 用于校验操作者身份
+    const { status } = req.body;
+    const userId = req.user.id;
 
     if (!['approved', 'rejected'].includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
