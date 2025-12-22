@@ -17,13 +17,13 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1]; // 格式: Bearer <token>
 
   if (!token) {
-    return res.status(401).json({ error: '未经授权：未提供令牌' });
+    return res.status(401).json({ error: '哎呀呀，授权用的令牌不见了！' });
   }
 
   // 验证 Token (注意：生产环境应将密钥存入 .env)
   jwt.verify(token, 'secret_key_123456', (err, user) => {
     if (err) {
-      return res.status(403).json({ error: '禁止：令牌无效或过期' });
+      return res.status(403).json({ error: '令牌好像是无效或过期的哦' });
     }
     req.user = user; // 将解析出的用户信息 (id, username) 挂载到 req 对象
     next();
@@ -398,7 +398,7 @@ router.put('/update/:id', authenticateToken, uploadMiddleware, async (req, res) 
                 await new Promise(resolve => setTimeout(resolve, 100));
                 fs.unlinkSync(inputPath);
                 fs.renameSync(outputPath, inputPath);
-            } catch (err) { console.error('水印失败', err); }
+            } catch (err) { console.error('添加水印失败', err); }
         }
         // 仅存储文件名
         imgUrl = req.file.filename;
@@ -443,7 +443,7 @@ router.put('/update/:id', authenticateToken, uploadMiddleware, async (req, res) 
 
     await char.update(updateData);
 
-    res.json({ success: true, message: '角色更新成功', data: char });
+    res.json({ success: true, message: '哎呀呀，新的设定注入灵魂核心了哦。', data: char });
 
   } catch (error) {
     console.error('更新角色失败:', error);
@@ -676,7 +676,7 @@ router.post('/comment/:id', authenticateToken, async (req, res) => {
 
     res.json({
       success: true,
-      message: '评论成功',
+      message: '叮！评论投递成功！',
       data: commentWithUser
     });
 
@@ -891,7 +891,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     // 4. 执行数据库删除
     await char.destroy();
 
-    res.json({ success: true, message: '角色删除成功' });
+    res.json({ success: true, message: '档案销毁完毕' });
 
   } catch (error) {
     console.error('删除角色失败:', error);

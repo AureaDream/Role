@@ -259,7 +259,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('织梦生成失败:', error);
+    console.error('织梦失败:', error);
     res.status(500).json({ error: '无法生成故事' });
   }
 });
@@ -290,14 +290,14 @@ router.patch('/:id/archive', authenticateToken, async (req, res) => {
     const isParticipant = targetStory.participants.some(char => String(char.userId) === String(userId));
     
     if (!isParticipant) {
-      return res.status(403).json({ error: 'Permission denied: You are not a participant of this story.' });
+      return res.status(403).json({ error: '许可被拒绝：你不是这个故事的参与者。' });
     }
 
     // 3. 数据库更新 (Database Update)
     // 修改状态为 archived
     const updateResult = await targetStory.update({ status: 'archived' });
 
-    res.json({ success: true, message: '记忆已入册。', data: updateResult });
+    res.json({ success: true, message: '哎呀呀，梦境成功记录下来啦。', data: updateResult });
 
   } catch (error) {
     console.error('归档故事失败:', error);
@@ -322,7 +322,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     });
 
     if (!story) {
-      return res.status(404).json({ error: 'Story not found.' });
+      return res.status(404).json({ error: '欸，梦境好像不见了' });
     }
 
     // 2. 权限校验
@@ -338,11 +338,11 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     
     const isParticipant = story.participants.some(char => String(char.userId) === String(userId));
     if (!isParticipant) {
-      return res.status(403).json({ error: '无权删除该故事' });
+      return res.status(403).json({ error: '哎呀呀，可不要乱动别人的梦境呀' });
     }
 
     await story.destroy();
-    res.json({ success: true, message: '故事已删除' });
+    res.json({ success: true, message: '梦境已销毁' });
 
   } catch (error) {
     console.error('删除故事失败:', error);

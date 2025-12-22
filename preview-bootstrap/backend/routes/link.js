@@ -58,7 +58,7 @@ const checkAuth = async (req, res, next) => {
     }
 
     // 3. 如果既不是自己的，也没有授权，则拦截
-    return res.status(403).json({ error: '权限被拒绝。请先发起联动申请。' });
+    return res.status(403).json({ error: '哎呀呀，权限被拒绝了呀。先发起联动申请吧。' });
 
   } catch (error) {
     console.error('鉴权检查失败:', error);
@@ -112,7 +112,7 @@ router.post('/request', authenticateToken, async (req, res) => {
       status: 'pending'
     });
 
-    res.status(201).json({ message: '联动申请发送成功', requestId: newRequest.id });
+    res.status(201).json({ message: '哎呀呀，工匠大人的申请信成功投递啦', requestId: newRequest.id });
 
   } catch (error) {
     console.error('发送申请失败:', error);

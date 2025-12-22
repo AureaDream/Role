@@ -12,13 +12,13 @@ router.post('/register', async (req, res) => {
     const pwd = req.body.password;
 
     if (!user || !pwd) {
-      return res.status(400).json({ success: false, msg: '用户名和密码不能为空' });
+      return res.status(400).json({ success: false, msg: '( ºΔº )哎呀呀，工匠大人忘了填名字吗？这里可不能留白呀。'});
     }
 
     // 检查用户名是否已存在
     const existingUser = await User.findOne({ where: { username: user } });
     if (existingUser) {
-      return res.status(409).json({ success: false, msg: '用户名已被占用' });
+      return res.status(409).json({ success: false, msg: '哎呀呀，这个名字已经有工匠登记过了呀！' });
     }
 
     // 创建新用户 (newUser)
@@ -28,7 +28,7 @@ router.post('/register', async (req, res) => {
       password: pwd
     });
 
-    res.json({ success: true, msg: '用户创建成功', userId: newUser.id });
+    res.json({ success: true, msg: '档案建立完毕', userId: newUser.id });
   } catch (err) {
     res.status(500).json({ success: false, msg: err.message });
   }
@@ -43,14 +43,14 @@ router.post('/login', async (req, res) => {
     // 1. 查找用户 (foundUser)
     const foundUser = await User.findOne({ where: { username: user } });
     if (!foundUser) {
-      return res.status(401).json({ success: false, msg: '用户不存在' });
+      return res.status(401).json({ success: false, msg: '哎呀呀，没有这个名字哦？' });
     }
 
     // 2. 验证密码
     // 调用模型实例方法 validPassword
     const isMatch = await foundUser.validPassword(pwd);
     if (!isMatch) {
-      return res.status(401).json({ success: false, msg: '密码错误' });
+      return res.status(401).json({ success: false, msg: '哎呀呀，密码错误了呢————' });
     }
 
     // 3. 生成 Token
@@ -67,20 +67,20 @@ router.post('/login', async (req, res) => {
       { expiresIn: '24h' }
     );
 
-    res.json({ success: true, token, msg: '登入成功' });
+    res.json({ success: true, token, msg: '哎呀呀，准备好————开始入梦咯。' });
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, msg: '系统错误' });
+    res.status(500).json({ success: false, msg: '糟糕，工坊发生了未知的错误！' });
   }
 });
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: '未经授权' });
+  if (!token) return res.status(401).json({ error: '哎呀呀，没有获得授权呢' });
   jwt.verify(token, 'secret_key_123456', (err, user) => {
-    if (err) return res.status(403).json({ error: '令牌无效' });
+    if (err) return res.status(403).json({ error: '哎呀呀，工匠大人的令牌是无效的哦' });
     req.user = user;
     next();
   });
@@ -92,7 +92,7 @@ router.get('/me', authenticateToken, async (req, res) => {
     const user = await User.findByPk(req.user.id, {
       attributes: ['id', 'username', 'nickname', 'avatar', 'role']
     });
-    if (!user) return res.status(404).json({ success: false, msg: '用户不存在' });
+    if (!user) return res.status(404).json({ success: false, msg: '哎呀呀，没有这个名字哦？' });
     res.json({ success: true, user });
   } catch (err) {
     res.status(500).json({ success: false, msg: err.message });
@@ -107,7 +107,7 @@ router.put('/profile', authenticateToken, upload.single('avatar'), async (req, r
     const { nickname } = req.body;
     
     const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ success: false, msg: '用户不存在' });
+    if (!user) return res.status(404).json({ success: false, msg: '哎呀呀，没有这个名字哦？' });
 
     if (nickname) user.nickname = nickname;
     if (req.file) {
@@ -130,7 +130,7 @@ router.put('/profile', authenticateToken, upload.single('avatar'), async (req, r
 
     await user.save();
     
-    res.json({ success: true, msg: '个人信息更新成功', user: {
+    res.json({ success: true, msg: '重调完毕！工匠大人的新面貌真让人耳目一新呀。', user: {
       id: user.id,
       username: user.username,
       nickname: user.nickname,
@@ -138,7 +138,7 @@ router.put('/profile', authenticateToken, upload.single('avatar'), async (req, r
     }});
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, msg: '更新失败: ' + err.message });
+    res.status(500).json({ success: false, msg: '糟糕糟糕！重调过程被打断了: ' + err.message });
   }
 });
 
