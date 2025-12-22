@@ -11,7 +11,7 @@
 <body data-page="detail">
   <nav class="navbar navbar-expand-lg bg-white border-bottom">
     <div class="container-fluid">
-      <a class="navbar-brand fw-bold" href="../index.html">OC Workshop</a>
+      <a class="navbar-brand fw-bold" href="../index.html">流金梦坊</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
       <div class="collapse navbar-collapse" id="nav">
         <ul class="navbar-nav ms-auto">
@@ -43,8 +43,7 @@
             <i class="bi bi-hand-thumbs-up"></i>
           </button>
           <div class="vr"></div>
-          <button class="btn btn-primary">导出图片</button>
-          <button class="btn btn-outline-secondary">导出PDF</button>
+          <button id="exportImgBtn" class="btn btn-primary">导出图片</button>
         </div>
       </div>
     </div>
@@ -53,10 +52,10 @@
       <div class="card-header">详细设定</div>
       <div class="card-body">
         <div class="row g-3">
-          <div class="col-12"><div class="fw-semibold">外貌</div><p id="appearance" class="text-muted mb-0"></p></div>
-          <div class="col-12"><div class="fw-semibold">性格</div><p id="traits" class="text-muted mb-0"></p></div>
+          <div class="col-12"><div class="fw-semibold">外貌</div><p id="appearance" class="text-muted mb-0 no-select" oncontextmenu="return false;"></p></div>
+          <div class="col-12"><div class="fw-semibold">性格</div><p id="traits" class="text-muted mb-0 no-select" oncontextmenu="return false;"></p></div>
           <div class="col-12"><div class="fw-semibold">背景故事</div><p id="background" class="text-muted mb-0 no-select" oncontextmenu="return false;"></p></div>
-          <div class="col-12"><div class="fw-semibold">标签</div><div id="tags" class="caps mt-2"></div></div>
+          <div class="col-12"><div class="fw-semibold">标签</div><div id="tags" class="caps mt-2 no-select" oncontextmenu="return false;"></div></div>
         </div>
       </div>
     </div>
@@ -94,6 +93,7 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="../assets/js/app.js"></script>
 </body>
 </html>

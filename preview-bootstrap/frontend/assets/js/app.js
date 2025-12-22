@@ -25,6 +25,91 @@ function getImgUrl(path) {
   return `${HOST_BASE}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
 }
 
+// --- 通用 UI 工具 ---
+window.showAlert = function(msg) {
+  return new Promise(resolve => {
+    // 简单转义处理，防止 script 注入，但保留基础标签如 <br>
+    // 这里为了简便直接渲染，生产环境建议使用 DOMPurify
+    const modalHtml = `
+      <div class="modal fade" id="globalAlertModal" tabindex="-1" style="z-index: 1056;">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+              <h5 class="modal-title">提示</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-4">
+              ${msg}
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-primary px-4 rounded-pill" data-bs-dismiss="modal">知道了</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    const old = document.getElementById('globalAlertModal');
+    if (old) old.remove();
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const el = document.getElementById('globalAlertModal');
+    const modal = new bootstrap.Modal(el);
+    
+    el.addEventListener('hidden.bs.modal', () => {
+      el.remove();
+      resolve();
+    });
+    
+    modal.show();
+  });
+};
+
+window.showConfirm = function(msg) {
+  return new Promise(resolve => {
+    const modalHtml = `
+      <div class="modal fade" id="globalConfirmModal" tabindex="-1" style="z-index: 1056;">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+              <h5 class="modal-title">确认</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-4">
+              ${msg}
+            </div>
+            <div class="modal-footer border-0 pt-0">
+              <button type="button" class="btn btn-secondary px-4 rounded-pill" data-bs-dismiss="modal" id="confirmCancelBtn">取消</button>
+              <button type="button" class="btn btn-primary px-4 rounded-pill" id="confirmOkBtn">确定</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    const old = document.getElementById('globalConfirmModal');
+    if (old) old.remove();
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const el = document.getElementById('globalConfirmModal');
+    const modal = new bootstrap.Modal(el);
+    
+    let isConfirmed = false;
+    
+    el.querySelector('#confirmOkBtn').addEventListener('click', () => {
+      isConfirmed = true;
+      modal.hide();
+    });
+    
+    el.addEventListener('hidden.bs.modal', () => {
+      el.remove();
+      resolve(isConfirmed);
+    });
+    
+    modal.show();
+  });
+};
+
 // --- 核心工具：请求封装 ---
 async function request(endpoint, options = {}) {
   try {
@@ -347,6 +432,22 @@ window.likeChar = likeChar; // 暴露给全局
         const opt = `<option value="${o.id}">${o.name}</option>`;
         selA.insertAdjacentHTML('beforeend', opt);
         selB.insertAdjacentHTML('beforeend', opt);
+      });
+    }
+
+    // --- 头像上传预览逻辑 ---
+    const avatarInput = document.querySelector('#charAvatarInput');
+    const avatarPreview = document.querySelector('#charAvatarPreview');
+    if (avatarInput && avatarPreview) {
+      avatarInput.addEventListener('change', function() {
+        const file = this.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            avatarPreview.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
       });
     }
 
@@ -1151,6 +1252,78 @@ async function initDetail() {
       }
   });
 
+  // --- 导出图片功能 ---
+  const exportBtn = document.querySelector('#exportImgBtn');
+  exportBtn?.addEventListener('click', async () => {
+      try {
+          exportBtn.disabled = true;
+          exportBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 生成中...';
+          
+          // 选择要截图的区域：包含顶部卡片和详细设定卡片
+          // 这里我们创建一个临时的容器将两者包裹起来，或者分别截图拼接，
+          // 为了简单效果好，我们可以克隆这两个卡片到一个隐藏容器中进行截图
+          
+          // 1. 准备截图容器
+          const captureContainer = document.createElement('div');
+          captureContainer.style.position = 'fixed';
+          captureContainer.style.top = '-9999px';
+          captureContainer.style.left = '-9999px';
+          captureContainer.style.width = '800px'; // 固定宽度保证排版
+          captureContainer.style.backgroundColor = '#f8f9fa'; // 背景色
+          captureContainer.style.padding = '40px';
+          
+          // 2. 克隆内容
+          const card1 = document.querySelector('.card').cloneNode(true); // 顶部卡片
+          const card2 = document.querySelector('#detailCard').cloneNode(true); // 详细设定
+          
+          // 移除按钮等不需要的元素
+          card1.querySelector('.ms-auto')?.remove(); 
+          
+          // 注入版权水印
+          const watermarkDiv = document.createElement('div');
+          watermarkDiv.className = 'text-center text-muted mt-4 small';
+          watermarkDiv.innerHTML = 'Generated by www.aureadream.xyz · 禁止盗用';
+          
+          captureContainer.appendChild(card1);
+          captureContainer.appendChild(document.createElement('br'));
+          captureContainer.appendChild(card2);
+          captureContainer.appendChild(watermarkDiv);
+          
+          document.body.appendChild(captureContainer);
+          
+          // 3. 等待图片加载 (如果有)
+          const imgs = captureContainer.querySelectorAll('img');
+          await Promise.all(Array.from(imgs).map(img => {
+              if (img.complete) return Promise.resolve();
+              return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+          }));
+          
+          // 4. 执行截图
+          const canvas = await html2canvas(captureContainer, {
+              useCORS: true, // 允许跨域图片
+              scale: 2, // 高清
+              backgroundColor: '#f4f6f9'
+          });
+          
+          // 5. 触发下载
+          const charName = document.querySelector('#name')?.textContent || 'OC';
+          const link = document.createElement('a');
+          link.download = `${charName}_Card.png`;
+          link.href = canvas.toDataURL('image/png');
+          link.click();
+          
+          // 6. 清理
+          document.body.removeChild(captureContainer);
+          
+      } catch (e) {
+          console.error('Export Image Failed:', e);
+          showAlert('导出图片失败: ' + e.message);
+      } finally {
+          exportBtn.disabled = false;
+          exportBtn.textContent = '导出图片';
+      }
+  });
+
   // 3. 发布评论
   postBtn?.addEventListener('click', async () => {
     const content = commentInput.value.trim();
@@ -1231,6 +1404,73 @@ async function initDetail() {
     const myOcGrid = document.querySelector('#myOcGrid');
     const myStoryGrid = document.querySelector('#myStoryGrid');
     const reqTbody = document.querySelector('#reqTbody');
+    
+    // --- 个人信息逻辑 ---
+    const userAvatarEl = document.querySelector('#userAvatar');
+    const userNicknameEl = document.querySelector('#userNickname');
+    const userNameEl = document.querySelector('#userName');
+    const avatarInput = document.querySelector('#userAvatarInput');
+    
+    // 加载个人信息
+    try {
+        const res = await request('/auth/me');
+        if (res.success && res.user) {
+            const u = res.user;
+            if (userNicknameEl) userNicknameEl.textContent = u.nickname || '未设置昵称';
+            if (userNameEl) userNameEl.textContent = `@${u.username}`;
+            if (userAvatarEl) userAvatarEl.src = getImgUrl(u.avatar);
+        }
+    } catch (e) {
+        console.error('Load Profile Failed:', e);
+    }
+    
+    // 头像上传
+    avatarInput?.addEventListener('change', async () => {
+        const file = avatarInput.files[0];
+        if (!file) return;
+        
+        // 预览
+        const reader = new FileReader();
+        reader.onload = e => userAvatarEl.src = e.target.result;
+        reader.readAsDataURL(file);
+        
+        // 上传
+        const formData = new FormData();
+        formData.append('avatar', file);
+        
+        try {
+            await request('/auth/profile', { method: 'PUT', body: formData });
+            showAlert('头像更新成功');
+        } catch (e) {
+            showAlert('头像上传失败: ' + e.message);
+        }
+    });
+    
+    // 昵称编辑
+    window.editNickname = async () => {
+        const current = userNicknameEl.textContent;
+        const newName = prompt('请输入新昵称:', current === '未设置昵称' ? '' : current);
+        if (newName !== null && newName.trim() !== '') {
+            try {
+                await request('/auth/profile', { 
+                    method: 'PUT', 
+                    body: { nickname: newName.trim() } 
+                });
+                userNicknameEl.textContent = newName.trim();
+                showAlert('昵称已更新');
+            } catch (e) {
+                showAlert('昵称更新失败: ' + e.message);
+            }
+        }
+    };
+    
+    // 退出登录
+    window.logout = () => {
+        if (confirm('确定要退出登录吗？')) {
+            localStorage.removeItem('token');
+            location.href = '../pages/login.html';
+        }
+    };
 
     if (!myOcGrid) return; // 确保在个人中心页
 
@@ -1366,10 +1606,11 @@ async function initDetail() {
   window.deleteChar = async (id) => {
     if (!(await showConfirm('确定要删除这个角色吗？此操作不可恢复。'))) return;
     try {
-      // 需后端支持 DELETE 接口
-      showAlert('删除功能需后端支持 DELETE /char/:id');
+      await request(`/char/${id}`, { method: 'DELETE' });
+      await showAlert('角色删除成功');
+      initProfile(); // 重新加载列表
     } catch (e) {
-      showAlert('删除失败');
+      showAlert('删除失败: ' + e.message);
     }
   };
 

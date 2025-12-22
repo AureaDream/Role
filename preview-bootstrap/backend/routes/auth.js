@@ -73,4 +73,55 @@ router.post('/login', async (req, res) => {
   }
 });
 
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: '未经授权' });
+  jwt.verify(token, 'secret_key_123456', (err, user) => {
+    if (err) return res.status(403).json({ error: '令牌无效' });
+    req.user = user;
+    next();
+  });
+};
+
+// 获取当前用户信息
+router.get('/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ['id', 'username', 'nickname', 'avatar', 'role']
+    });
+    if (!user) return res.status(404).json({ success: false, msg: '用户不存在' });
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ success: false, msg: err.message });
+  }
+});
+
+// 更新个人信息 (头像、昵称)
+const { upload } = require('../utils/fileService'); // 复用已有的 upload 中间件
+router.put('/profile', authenticateToken, upload.single('avatar'), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { nickname } = req.body;
+    
+    const user = await User.findByPk(userId);
+    if (!user) return res.status(404).json({ success: false, msg: '用户不存在' });
+
+    if (nickname) user.nickname = nickname;
+    if (req.file) user.avatar = req.file.filename;
+
+    await user.save();
+    
+    res.json({ success: true, msg: '个人信息更新成功', user: {
+      id: user.id,
+      username: user.username,
+      nickname: user.nickname,
+      avatar: user.avatar
+    }});
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, msg: '更新失败: ' + err.message });
+  }
+});
+
 module.exports = router;

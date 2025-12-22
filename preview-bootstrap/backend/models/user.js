@@ -29,6 +29,10 @@ const userSchema = {
     type: DataTypes.STRING,
     defaultValue: 'user', // 默认角色为普通用户
     comment: '用户角色 (user/admin)'
+  },
+  avatar: {
+    type: DataTypes.STRING,
+    comment: '用户头像路径'
   }
 };
 

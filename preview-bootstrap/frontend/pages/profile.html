@@ -10,7 +10,7 @@
 <body data-page="profile">
   <nav class="navbar navbar-expand-lg bg-white border-bottom">
     <div class="container-fluid">
-      <a class="navbar-brand fw-bold" href="../index.html">OC Workshop</a>
+      <a class="navbar-brand fw-bold" href="../index.html">流金梦坊</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
       <div class="collapse navbar-collapse" id="nav">
         <ul class="navbar-nav ms-auto">
@@ -24,6 +24,35 @@
   <div class="flowing-gold-line"></div>
 
   <main class="container my-4">
+    <!-- 个人信息卡片 -->
+    <div class="card mb-4 border-0 shadow-sm bg-gradient-primary-to-secondary text-white" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center">
+          <div class="position-relative me-4" style="cursor: pointer;" onclick="document.getElementById('userAvatarInput').click()">
+             <img id="userAvatar" src="https://placehold.co/150?text=User" class="rounded-circle border border-3 border-white shadow" style="width: 100px; height: 100px; object-fit: cover;">
+             <div class="position-absolute bottom-0 end-0 bg-white rounded-circle p-1 shadow-sm text-dark d-flex justify-content-center align-items-center" style="width: 32px; height: 32px;">
+               <i class="bi bi-camera-fill small"></i>
+             </div>
+             <input type="file" id="userAvatarInput" class="d-none" accept="image/*">
+          </div>
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2">
+              <h2 id="userNickname" class="h4 fw-bold mb-0">未命名用户</h2>
+              <button class="btn btn-sm btn-outline-light border-0" onclick="editNickname()">
+                <i class="bi bi-pencil-fill"></i>
+              </button>
+            </div>
+            <p id="userName" class="mb-0 opacity-75 small">@username</p>
+          </div>
+          <div class="align-self-start">
+             <button class="btn btn-light text-danger fw-bold rounded-pill px-4 shadow-sm" onclick="logout()">
+               <i class="bi bi-box-arrow-right me-2"></i>退出账号
+             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="card mb-3">
       <div class="card-header">我的 OC 库</div>
       <div class="card-body">

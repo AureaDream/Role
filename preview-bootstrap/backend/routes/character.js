@@ -854,4 +854,33 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// --- API: 删除角色 (Delete Character) ---
+// 权限：需要登录且是角色的拥有者
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // 1. 查找角色
+    const char = await Character.findByPk(id);
+    if (!char) {
+      return res.status(404).json({ success: false, error: 'Character not found' });
+    }
+
+    // 2. 权限校验：只能删除自己的角色
+    if (char.userId !== userId) {
+      return res.status(403).json({ success: false, error: 'You do not have permission to delete this character' });
+    }
+
+    // 3. 执行删除
+    await char.destroy();
+
+    res.json({ success: true, message: '角色删除成功' });
+
+  } catch (error) {
+    console.error('删除角色失败:', error);
+    res.status(500).json({ success: false, error: '服务器内部错误，无法删除角色' });
+  }
+});
+
 module.exports = router;

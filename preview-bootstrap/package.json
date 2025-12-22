@@ -1,7 +1,7 @@
 {
   "name": "oc-workshop",
   "version": "1.0.0",
-  "description": "OC Workshop Backend",
+  "description": "流金梦坊 Backend",
   "main": "backend/app.js",
   "scripts": {
     "start": "node backend/app.js",

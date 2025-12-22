@@ -17,6 +17,15 @@ const DB_PASS = process.env.DB_PASS || 'password'; // 请务必在 .env 中设�
 const DB_HOST = process.env.DB_HOST || 'localhost';
 const DB_PORT = process.env.DB_PORT || 3306;
 
+// --- 连接信息打印 (环境自适应调试) ---
+console.log('----------------------------------------');
+console.log('📡 [Database Config] 正在初始化连接...');
+console.log(`   Host: ${DB_HOST}`);
+console.log(`   Port: ${DB_PORT}`);
+console.log(`   User: ${DB_USER}`);
+console.log(`   Database: ${DB_NAME}`);
+console.log('----------------------------------------');
+
 // --- 连接参数说明 (远程连接必读) ---
 // 如果是连接云数据库 (如阿里云 RDS/腾讯云 CDB)：
 // 1. DB_HOST: 必须是公网 IP (如 120.79.x.x) 或内网域名 (如果在同一 VPC 下)。
