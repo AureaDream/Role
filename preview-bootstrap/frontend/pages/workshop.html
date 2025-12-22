@@ -6,6 +6,7 @@
   <title>织梦所 · 流金梦坊</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
   <link rel="stylesheet" href="../assets/css/theme.css">
 </head>
 <body data-page="workshop">
@@ -111,7 +112,7 @@
         <div class="fab-container d-flex align-items-center gap-2">
            <button id="saveCharBtn" class="btn btn-primary rounded-pill px-4 shadow-lg">保存设定</button>
            <button id="aiPolishBtn" class="btn btn-warning rounded-pill px-4 shadow-lg text-white">AI 润色</button>
-           <button type="button" class="btn btn-outline-info rounded-circle shadow-lg d-flex align-items-center justify-content-center" style="width:40px;height:40px;padding:0;" onclick="showAlert('【制作者给用户的一些规则提醒】<br><br>9999')">
+           <button type="button" class="btn btn-outline-info rounded-circle shadow-lg d-flex align-items-center justify-content-center" style="width:40px;height:40px;padding:0;" onclick="showAlert('【AI润色功能会基于你给定的外貌描述与背景故事内容，输出一份更完整的故事。<br>注意：此内容完全由AI生成，不具备原创效益。】')">
              <i class="bi bi-question-lg"></i>
            </button>
         </div>
@@ -137,6 +138,19 @@
                <div class="loading-halo"></div>
                <div class="text-muted mt-2 small">AI正在编织梦境...</div>
             </div>
+
+            <!-- 灵感共创区 (新增) -->
+            <div id="inspirationArea" class="mt-4 d-none">
+                <div class="text-center mb-3">
+                    <div class="h6 text-muted">请选择一个梦境走向...</div>
+                </div>
+                <div id="optionList" class="d-grid gap-2">
+                    <!-- 动态插入选项按钮 -->
+                </div>
+                <button id="confirmPathBtn" class="btn btn-primary w-100 mt-3" disabled>
+                    <i class="bi bi-check-circle me-1"></i> 确认编织
+                </button>
+            </div>
             
             <div id="resultCard" class="parchment-box mt-4 d-none">
               <div class="h5 fw-bold mb-3" style="color:#b39700">❖ 梦境篇章</div>
@@ -158,7 +172,29 @@
     </div>
   </div>
 
+  <!-- 裁剪图片弹窗 -->
+  <div class="modal fade" id="cropModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">裁剪头像</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-0" style="max-height: 70vh; background-color: #333;">
+          <div class="d-flex justify-content-center align-items-center h-100">
+             <img id="cropImage" src="" style="max-width: 100%; max-height: 60vh; display: block;">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-primary" id="cropConfirmBtn">确认裁剪</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
   <script src="../assets/js/app.js"></script>
 </body>
 </html>

@@ -332,9 +332,7 @@ async function writeStoryStream(chars, scene, onToken, username) {
 ## 创作环境约束
 - **时代背景**：严格遵循角色原有的世界观（如西幻、古风、废土等）。
 - **互动逻辑**：若涉及多人，请通过眼神交换、权力平衡展现角色间的化学反应。
-
-## 角色资料卡（由系统传入）
-[cite_start][此处插入 Character 集合中的数据，包含姓名、性格、背景、自定义标签等 [cite: 6]]`;
+`;
 
   const userPrompt = `【场景】${scene}\n【角色】${charContext}\n请开始创作：`;
 
@@ -407,24 +405,33 @@ async function writeStoryStream(chars, scene, onToken, username) {
  * @returns {Promise<Array>} - 返回 3 个选项数组
  */
 async function brainstormStory(chars, keywords) {
-  const charInfo = chars.map(c => `${c.name}(${c.personality})`).join(' 与 ');
+  // --- 上下文构建 ---
+  const charContext = chars.map(c => `姓名:${c.name}, 性格:${c.personality}, 背景:${c.description || c.bio}`).join('\n');
   
   const systemPrompt = `
-    # Role: 剧情架构师 (Story Architect)
-    你不是直接写故事的人，你是为作者提供灵感的助手。
-    请根据用户提供的角色和关键词，构思 3 个截然不同的【逻辑冲突点】或【命运走向】。
-    
-    ## 要求
-    1. 每个选项不超过 30 字。
-    2. 必须包含具体的冲突或行动指引。
-    3. 选项风格要多样化（例如：一个治愈向、一个刀子向、一个悬疑向）。
-    
+# Role: 资深剧本架构师 (Narrative Engineer)
+
+你现在是一位专门挖掘角色灵魂冲突的剧本大师。你的任务是根据用户提供的 OC 资料，拆解其性格与背景中的潜在线索，构思 3 个极具张力的【命运分歧点】。
+
+## 核心法则：剧作冲突
+1. **挖掘软肋**：每个分歧点必须精准刺向角色的性格缺陷或最珍视的事物。
+2. **拒绝平庸**：不要给普通的情节（如“遇到了怪物”），要给【不得不做的抉择】（如“必须亲手杀死那个变成怪物的亲人”）。
+3. **标签化风格**：
+   - 【糖/治愈】：侧重于角色的和解与救赎。
+   - 【刀/悲剧】：侧重于宿命的无奈与残酷的代价。
+   - 【谜/悬疑】：侧重于未知的威胁与反直觉的真相。
+
+## 输出规格
+- **字数**：每个选项 50 字以内，简练有力。
+- **格式**：仅返回一个合法的 JSON 数组，严禁包含 Markdown 标记。
+- **内容要求**：每个数组元素内必须以【风格标签】开头，后接具体的冲突事件。
+
     ## 输出格式
     请仅返回一个合法的 JSON 数组，严禁包含 Markdown 代码块。
     ["选项一内容...", "选项二内容...", "选项三内容..."]
   `;
   
-  const userPrompt = `角色：${charInfo}\n关键词：${keywords}\n请提供 3 个灵感选项。`;
+  const userPrompt = `【角色档案】\n${charContext}\n【场景关键词】\n${keywords}\n请提供 3 个灵感选项。`;
   
   try {
     const aiOutput = await callAI(systemPrompt, userPrompt);
@@ -434,7 +441,7 @@ async function brainstormStory(chars, keywords) {
     
     return JSON.parse(cleanData);
   } catch (e) {
-    console.error('Brainstorm Failed:', e);
+    console.error('头脑风暴失败:', e);
     return [
       `试图理解${keywords}背后的真相，却发现了惊人的秘密。`,
       `在${keywords}的氛围中，两人因观念不同而爆发了激烈的争吵。`,
@@ -443,4 +450,73 @@ async function brainstormStory(chars, keywords) {
   }
 }
 
-module.exports = { callAI, buildChar, writeStory, writeStoryStream, polishBio, suggestProfile, brainstormStory };
+/**
+ * 根据选定的走向生成故事 (Generate V2)
+ * @param {Array} chars - 角色列表
+ * @param {string} selectedPath - 选定的命运走向
+ * @param {string} keywords - 原始关键词 (可选，作为补充背景)
+ * @returns {Promise<string>} - 故事正文
+ */
+async function writeStoryV2(chars, selectedPath, keywords) {
+  // --- 上下文处理 ---
+  const charContext = chars.map((c, index) => {
+    const tagsStr = c.tags && c.tags.length > 0 
+      ? c.tags.map(t => `${t.key}: ${t.value}`).join(', ') 
+      : '无特殊标签';
+    return `
+    [角色 ${index + 1}]
+    姓名: ${c.name}
+    性格: ${c.personality}
+    关键特征(Tags): ${tagsStr}
+    外观: ${c.appearance || '暂无详细描述'}
+    背景: ${c.description || c.bio || '暂无详细描述'}
+    `;
+  }).join('\n--------------------\n');
+
+  const systemPrompt = `
+     # Role: 资深同人叙事专家 & 角色架构师
+    你现在是一位顶尖的同人小说家，擅长捕捉角色灵魂中那一抹不可言说的“宿命感”。
+    你将基于用户提供的 OC（原创角色）设定，创作一段极具沉浸感的故事片段。
+    用户已选择了如下命运走向：${selectedPath}。
+    请基于此走向，结合角色设定，编织一段完整的梦境故事。
+    
+  ## 核心法则：灵魂叙事
+  1. **去标签化逻辑（Anti-Labeling）**：【绝对禁令】严禁在故事文本（叙述、对话、内心活动）中出现 MBTI 类型（如 INFJ）、DND 阵营（如守序善良）或任何游戏化数值。这些标签仅作为你理解角色性格的“内部地图”，禁止出现在读者的视野中。
+  2. **严防 OOC**：深度研读角色的背景故事、性格缺陷和目标。角色的所有言行必须符合其逻辑出发点。
+  3. **展示而非讲述（Show, Don't Tell）**：
+   - 严禁直接说“他很悲伤”；请描写“他指尖颤抖着，试图点燃那支早已湿透的卷烟”。
+   - 严禁直接说“她是理想主义者”；请描写“她在燃烧的灰烬中寻找一朵尚未枯萎的花”。
+
+  ## 任务目标
+  根据以下角色资料，创作一段具有“起承转合”的【小剧场】故事：
+  - **篇幅限制**：500 - 1000 字（短而精，爆发力强）。
+  - **风格基调**：细腻、深邃，具有二次元质感且富有浪漫气息。
+  - **冲突设计**：必须设置一个具体的外部冲突或心理挣扎，通过角色的抉择展现其灵魂特质。
+
+  ## 创作环境约束
+  - **时代背景**：严格遵循角色原有的世界观（如西幻、古风、废土等）。
+  - **互动逻辑**：若涉及多人，请通过眼神交换、权力平衡展现角色间的化学反应。
+  `;
+
+  const userPrompt = `
+    【场景/背景】
+    ${keywords}
+    
+    【角色档案】
+    ${charContext}
+    
+    【选定的命运走向】
+    ${selectedPath}
+    
+    请开始创作：
+  `;
+
+  try {
+    return await callAI(systemPrompt, userPrompt);
+  } catch (error) {
+    console.error('编写故事V2失败:', error);
+    return '灵感连接中断……请重试。';
+  }
+}
+
+module.exports = { callAI, buildChar, writeStory, writeStoryStream, polishBio, suggestProfile, brainstormStory, writeStoryV2 };

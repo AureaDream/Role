@@ -4,7 +4,7 @@ const Story = require('../models/story');
 const Character = require('../models/character');
 const axios = require('axios');
 const jwt = require('jsonwebtoken'); // 引入 JWT
-const { writeStory, writeStoryStream, brainstormStory } = require('../services/aiService');
+const { writeStory, writeStoryStream, brainstormStory, writeStoryV2 } = require('../services/aiService');
 const LinkRequest = require('../models/linkrequest');
 const { Op } = require('sequelize');
 
@@ -370,6 +370,69 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     console.error('获取故事详情失败:', error);
     res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// --- API: 路径建议 (Propose Paths) ---
+// 功能：第一阶段，获取 3 个灵感走向
+router.post('/propose-paths', authenticateToken, async (req, res) => {
+  try {
+    const { charIdA, charIdB, keywords } = req.body;
+    
+    // 查询角色
+    const queryIds = [charIdA];
+    if (charIdB) queryIds.push(charIdB);
+    const chars = await Character.findAll({ where: { id: { [Op.in]: queryIds } } });
+    
+    if (chars.length === 0) return res.status(404).json({ error: 'Character not found' });
+    
+    const options = await brainstormStory(chars, keywords);
+    res.json({ options });
+  } catch (error) {
+    console.error('Propose Paths Error:', error);
+    res.status(500).json({ error: '灵感枯竭中...' });
+  }
+});
+
+// --- API: 故事生成 V2 (Generate Story with Path) ---
+// 功能：第二阶段，基于选定走向生成故事
+router.post('/generate-v2', authenticateToken, async (req, res) => {
+  try {
+    const { charIdA, charIdB, keywords, selectedPath } = req.body;
+    
+    if (!selectedPath) {
+      return res.status(400).json({ error: '请选择一个命运走向' });
+    }
+
+    const queryIds = [charIdA];
+    if (charIdB) queryIds.push(charIdB);
+    
+    const chars = await Character.findAll({ where: { id: { [Op.in]: queryIds } } });
+    
+    if (chars.length === 0) return res.status(404).json({ error: 'Character not found' });
+
+    // 调用新的 V2 生成逻辑
+    const storyContent = await writeStoryV2(chars, selectedPath, keywords);
+
+    // 保存故事
+    const newStory = await Story.create({
+      chars: queryIds,
+      title: `${selectedPath.substring(0, 10)}... 的梦境`,
+      content: storyContent,
+      prompt: `${keywords} | 走向: ${selectedPath}`,
+      model: 'deepseek-v3'
+    });
+
+    await newStory.addParticipants(queryIds);
+
+    res.json({
+      success: true,
+      story: newStory
+    });
+
+  } catch (error) {
+    console.error('Generate V2 Error:', error);
+    res.status(500).json({ error: '无法编织梦境' });
   }
 });
 

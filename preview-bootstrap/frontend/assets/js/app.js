@@ -455,19 +455,70 @@ window.likeChar = likeChar; // 暴露给全局
       });
     }
 
-    // --- 头像上传预览逻辑 ---
+    // --- 头像上传预览逻辑 (集成裁剪) ---
     const avatarInput = document.querySelector('#charAvatarInput');
     const avatarPreview = document.querySelector('#charAvatarPreview');
-    if (avatarInput && avatarPreview) {
+    const cropModalEl = document.getElementById('cropModal');
+    const cropImage = document.getElementById('cropImage');
+    let cropper = null;
+
+    if (avatarInput && avatarPreview && cropModalEl) {
+      const cropModal = new bootstrap.Modal(cropModalEl);
+
       avatarInput.addEventListener('change', function() {
         const file = this.files[0];
         if (file) {
           const reader = new FileReader();
           reader.onload = function(e) {
-            avatarPreview.src = e.target.result;
+            cropImage.src = e.target.result;
+            // 每次打开前先销毁旧的实例（如果有），防止重复
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+            cropModal.show();
           };
           reader.readAsDataURL(file);
         }
+      });
+
+      cropModalEl.addEventListener('shown.bs.modal', () => {
+          cropper = new Cropper(cropImage, {
+              aspectRatio: 1,
+              viewMode: 1,
+              dragMode: 'move',
+              autoCropArea: 1,
+          });
+      });
+
+      cropModalEl.addEventListener('hidden.bs.modal', () => {
+          if (cropper) {
+              cropper.destroy();
+              cropper = null;
+          }
+          // 如果取消了，input 仍保留原文件（虽然没剪裁）。
+      });
+
+      document.getElementById('cropConfirmBtn')?.addEventListener('click', () => {
+          if (!cropper) return;
+          
+          cropper.getCroppedCanvas({
+              width: 512,
+              height: 512
+          }).toBlob((blob) => {
+              // 创建新文件对象
+              const file = new File([blob], "avatar_cropped.jpg", { type: "image/jpeg" });
+              
+              // 使用 DataTransfer 更新 input.files
+              const dataTransfer = new DataTransfer();
+              dataTransfer.items.add(file);
+              avatarInput.files = dataTransfer.files;
+              
+              // 更新预览
+              avatarPreview.src = URL.createObjectURL(blob);
+              
+              cropModal.hide();
+          }, 'image/jpeg');
       });
     }
 
@@ -535,71 +586,138 @@ window.likeChar = likeChar; // 暴露给全局
       }
     }
 
-    // 织梦生成逻辑 (genBtn 点击事件)
-    // 1. 点击后显示 loadingArea (删除 d-none 类)
-    // 2. 调用 /api/story/generate 接口
-    // 3. 成功后隐藏 Loading，显示 resultCard 并将返回的故事填入 resultPre
+    // 织梦生成逻辑 (genBtn 点击事件) - 重构为两阶段共创模式
+    let selectedPath = ''; // 存储用户选中的走向
+
     genBtn?.addEventListener('click', async () => {
       const charIdA = selA.value;
       const charIdB = selB.value;
       const keywords = document.querySelector('#keywords').value;
       
-      // 允许配角B为空 (单人故事模式)
       if (!charIdA) return alert('请至少选择主角');
       if (!keywords) return alert('请输入场景关键词');
 
-      // 显示 Loading
+      // --- 第一阶段：获取灵感走向 ---
+      // 1. UI 状态切换
       genBtn.disabled = true;
-      genBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 正在织梦...';
+      genBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 正在寻找灵感...';
       document.querySelector('#loadingArea').classList.remove('d-none');
+      document.querySelector('#loadingArea .text-muted').textContent = 'AI正在构思命运走向...';
       document.querySelector('#resultCard').classList.add('d-none');
+      document.querySelector('#inspirationArea').classList.add('d-none'); // 确保先隐藏
 
       try {
-        // 调用后端生成接口
-        const res = await request('/story/generate', {
+        // 2. 请求 /propose-paths
+        const res = await request('/story/propose-paths', {
           method: 'POST',
           body: { charIdA, charIdB, keywords }
         });
 
-        // 隐藏 Loading，显示结果
-        document.querySelector('#loadingArea').classList.add('d-none');
-        document.querySelector('#resultCard').classList.remove('d-none');
-        
-        // 渲染故事内容 (打字机效果)
-        const text = res.story.content;
-        const pre = document.querySelector('#resultPre');
-        pre.textContent = '';
-        pre.classList.add('typewriter-cursor'); // 添加光标
-        
-        let i = 0;
-        function type() {
-          if (i < text.length) {
-            const char = text.charAt(i);
-            // 处理换行符，如果是普通文本容器需要用 <br>，如果是 pre-wrap 则不需要
-            // 这里我们保持 textContent 以利用 white-space: pre-wrap
-            pre.textContent += char;
-            i++;
-            // 随机打字速度，模拟真实感
-            const delay = Math.random() * 30 + 10;
-            setTimeout(type, delay);
-          } else {
-            pre.classList.remove('typewriter-cursor'); // 移除光标
-            genBtn.disabled = false;
-            genBtn.textContent = '✨ 再次生成';
-            
-            // 提示用户已自动保存
-            alert('✨ 梦境已收录到您的故事集中');
-          }
+        // 3. 渲染选项
+        const optionList = document.querySelector('#optionList');
+        optionList.innerHTML = ''; // 清空旧选项
+        selectedPath = ''; // 重置选中状态
+        document.querySelector('#confirmPathBtn').disabled = true;
+
+        if (res.options && Array.isArray(res.options)) {
+            res.options.forEach((opt, index) => {
+                // 使用 Bootstrap 按钮组风格 (Radio behavior)
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-outline-secondary text-start p-3 position-relative';
+                btn.innerHTML = `<span class="badge bg-light text-dark border me-2">${index + 1}</span>${opt}`;
+                
+                btn.onclick = () => {
+                    // 移除其他按钮的 active 状态
+                    optionList.querySelectorAll('button').forEach(b => b.classList.remove('active', 'border-primary', 'bg-light'));
+                    // 激活当前按钮
+                    btn.classList.add('active', 'border-primary', 'bg-light');
+                    // 记录选择
+                    selectedPath = opt;
+                    // 启用确认按钮
+                    document.querySelector('#confirmPathBtn').disabled = false;
+                };
+                
+                optionList.appendChild(btn);
+            });
         }
-        type();
+
+        // 4. 显示灵感区，隐藏 Loading
+        document.querySelector('#loadingArea').classList.add('d-none');
+        document.querySelector('#inspirationArea').classList.remove('d-none');
+        
+        // 恢复生成按钮 (或者保持禁用直到流程结束? 建议保持禁用以免重复点击)
+        // genBtn.disabled = false; 
+        genBtn.textContent = '✨ 重新构思'; // 允许用户如果不满意重新生成选项
+        genBtn.disabled = false;
 
       } catch (error) {
-        console.error('Generate Story Failed:', error);
-        showAlert('生成失败: ' + error.message);
+        console.error('Propose Paths Failed:', error);
+        showAlert('灵感获取失败: ' + error.message);
         genBtn.disabled = false;
         genBtn.textContent = '✨ 开始织梦';
         document.querySelector('#loadingArea').classList.add('d-none');
       }
+    });
+
+    // --- 第二阶段：确认编织 ---
+    const confirmPathBtn = document.querySelector('#confirmPathBtn');
+    confirmPathBtn?.addEventListener('click', async () => {
+        if (!selectedPath) return alert('请先选择一个走向');
+
+        const charIdA = selA.value;
+        const charIdB = selB.value;
+        const keywords = document.querySelector('#keywords').value;
+
+        // 1. UI 状态切换
+        confirmPathBtn.disabled = true;
+        confirmPathBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 编织中...';
+        document.querySelector('#inspirationArea').classList.add('d-none'); // 隐藏选项区
+        document.querySelector('#loadingArea').classList.remove('d-none');
+        document.querySelector('#loadingArea .text-muted').textContent = 'AI正在基于您的选择编织梦境...';
+
+        try {
+            // 2. 请求 /generate-v2 (携带选中的走向)
+            const res = await request('/story/generate-v2', {
+                method: 'POST',
+                body: { charIdA, charIdB, keywords, selectedPath }
+            });
+
+            // 3. 隐藏 Loading，显示结果
+            document.querySelector('#loadingArea').classList.add('d-none');
+            document.querySelector('#resultCard').classList.remove('d-none');
+
+            // 渲染故事内容 (打字机效果)
+            const text = res.story.content;
+            const pre = document.querySelector('#resultPre');
+            pre.textContent = '';
+            pre.classList.add('typewriter-cursor');
+
+            let i = 0;
+            function type() {
+                if (i < text.length) {
+                    pre.textContent += text.charAt(i);
+                    i++;
+                    setTimeout(type, Math.random() * 20 + 10);
+                } else {
+                    pre.classList.remove('typewriter-cursor');
+                    genBtn.disabled = false;
+                    genBtn.textContent = '✨ 再次织梦';
+                    confirmPathBtn.textContent = '确认编织'; // 重置按钮文本
+                    
+                    alert('✨ 梦境已收录到您的故事集中');
+                }
+            }
+            type();
+
+        } catch (error) {
+            console.error('Generate Story V2 Failed:', error);
+            showAlert('生成失败: ' + error.message);
+            // 恢复状态以便重试
+            document.querySelector('#loadingArea').classList.add('d-none');
+            document.querySelector('#inspirationArea').classList.remove('d-none');
+            confirmPathBtn.disabled = false;
+            confirmPathBtn.textContent = '确认编织';
+        }
     });
 
     // 绑定“保存设定”按钮 (创建 OC)
@@ -766,6 +884,11 @@ window.likeChar = likeChar; // 暴露给全局
                console.log('AI Suggested Personality:', aiSuggestion.personality);
                // 自动加入 Tags
                currentTags.push({ key: '性格', value: aiSuggestion.personality });
+               
+               // 同步到基础信息输入框
+               const personalityInput = document.querySelector('#charPersonality');
+               if (personalityInput) personalityInput.value = aiSuggestion.personality;
+
                renderTags();
              }
            }

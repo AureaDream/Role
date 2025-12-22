@@ -97,7 +97,8 @@ async function startServer() {
 
     // 同步数据库模型
     // alter: true 会自动比对并更新表结构，不会删除数据
-    await sequelize.sync({ alter: true });
+    // 临时关闭 alter 以避免 "Too many keys" 错误
+    await sequelize.sync({ alter: false });
     console.log('📦 [Database] 表结构同步完成');
 
     // --- 6. 端口监听 ---
