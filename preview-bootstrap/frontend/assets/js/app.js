@@ -155,6 +155,10 @@ async function initHome() {
               <div class="card-text text-muted small text-truncate-2" style="min-height: 2.5em;">
                 ${char.description || char.intro || '暂无描述'}
               </div>
+              <div class="d-flex align-items-center gap-3 mt-3 text-muted small">
+                  <span title="点赞"><i class="bi bi-heart-fill text-danger me-1"></i>${char.likes || 0}</span>
+                  <span title="评论"><i class="bi bi-chat-fill text-primary me-1"></i>${char.commentsCount || 0}</span>
+              </div>
             </div>
             
             <!-- Floating Action Button -->
@@ -291,6 +295,9 @@ window.likeChar = likeChar; // 暴露给全局
           
           const jobTag = currentTags.find(t => t.key === '职业');
           if (jobTag) document.querySelector('#charJob').value = jobTag.value;
+          
+          const personalityTag = currentTags.find(t => t.key === '性格');
+          if (personalityTag) document.querySelector('#charPersonality').value = personalityTag.value;
         }
 
         // 修改按钮状态
@@ -566,16 +573,13 @@ window.likeChar = likeChar; // 暴露给全局
       const race = document.querySelector('#charRace').value;
       const job = document.querySelector('#charJob').value;
       const bio = document.querySelector('#charBio').value;
+      const personality = document.querySelector('#charPersonality').value;
 
-      if (!name) return alert('请先输入角色姓名');
+      if (!name) { showAlert('请先输入角色姓名'); return; }
 
       try {
         aiPolishBtn.disabled = true;
         aiPolishBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 润色中...';
-
-        // 尝试从标签中提取性格
-        const personalityTag = currentTags.find(t => t.key === '性格' || t.key === 'Personality');
-        const personality = personalityTag ? personalityTag.value : '';
 
         // 构建上下文对象
         const charContext = {
