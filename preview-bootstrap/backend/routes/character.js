@@ -94,11 +94,15 @@ router.post('/add', authenticateToken, upload.single('image'), async (req, res) 
     if (!Array.isArray(tags)) tags = [];
 
     // 3. 数据库保存 (Data Persistence)
+    // 生成 RID
+    const rid = 'R' + Math.floor(Math.random() * 900000 + 100000); // R + 6位数字
+
     // 使用 Sequelize 将 OC 设定存入 Characters 表
     // 包含姓名、性别、年龄、外貌、背景(description)及自定义标签
     const newChar = await Character.create({
       userId: userId,        // 关联用户 ID
       name: data.name,
+      rid: rid,              // 随机ID
       description: data.description, // 角色设定 (背景故事)
       image: imgUrl,         // 立绘路径
       isPublic: data.isPublic === 'true' || data.isPublic === true, // 确保布尔值正确

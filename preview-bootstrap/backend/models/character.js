@@ -21,6 +21,12 @@ const Character = sequelize.define('Character', {
     allowNull: false,
     comment: '角色姓名'
   },
+  // --- 新增: RID (随机ID) ---
+  rid: {
+    type: DataTypes.STRING(20),
+    unique: true, // 确保唯一
+    comment: '角色唯一随机标识符 (如 R123456)'
+  },
   // --- 用户要求的 description 字段 ---
   description: {
     type: DataTypes.TEXT,

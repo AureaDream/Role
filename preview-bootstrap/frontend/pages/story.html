@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>梦境阅读 · OC人设工坊</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  <style>
+    body {
+      background-color: #fdfaf2; /* 羊皮纸色背景 */
+    }
+    .story-container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 40px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      border: 1px solid rgba(0,0,0,0.05);
+      min-height: 80vh;
+    }
+    .story-title {
+      font-family: "Playfair Display", serif;
+      font-weight: 700;
+      color: #2c3e50;
+      margin-bottom: 20px;
+      text-align: center;
+      position: relative;
+      padding-bottom: 20px;
+    }
+    .story-title::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #FFD700, transparent);
+    }
+    .story-meta {
+      text-align: center;
+      color: #888;
+      font-size: 0.9rem;
+      margin-bottom: 40px;
+    }
+    .story-content {
+      font-size: 1.1rem;
+      line-height: 1.8;
+      color: #4a4a4a;
+      white-space: pre-wrap; /* 保留换行 */
+      text-align: justify;
+    }
+    .char-avatar-small {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      margin-right: -10px;
+    }
+    .char-list {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body data-page="story">
+  <nav class="navbar navbar-expand-lg bg-white border-bottom fixed-top">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="../index.html">OC Workshop</a>
+      <button class="btn btn-link text-decoration-none" onclick="history.back()">
+        <i class="bi bi-arrow-left"></i> 返回
+      </button>
+    </div>
+  </nav>
+
+  <div class="container" style="padding-top: 60px;">
+    <div class="story-container">
+      <div id="loading" class="text-center py-5">
+        <div class="spinner-border text-warning" role="status"></div>
+        <p class="mt-2 text-muted">正在进入梦境...</p>
+      </div>
+      
+      <div id="storyArea" class="d-none">
+        <div class="char-list" id="charList"></div>
+        <h1 class="story-title" id="storyTitle"></h1>
+        <div class="story-meta">
+          <span id="storyTime"></span> · <span id="storyModel">DeepSeek V3</span>
+        </div>
+        <div class="story-content" id="storyContent"></div>
+      </div>
+      
+      <div id="errorArea" class="d-none text-center py-5">
+        <div class="alert alert-danger d-inline-block">无法加载故事内容</div>
+        <br>
+        <button class="btn btn-outline-secondary mt-3" onclick="history.back()">返回上一页</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

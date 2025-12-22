@@ -237,7 +237,7 @@ async function likeChar(id, btn) {
 window.likeChar = likeChar; // 暴露给全局
 
   // 2. 工作台 (workshop.html)
-  function initWorkshop() {
+  async function initWorkshop() {
     const genBtn = document.querySelector('#genBtn');
     const selA = document.querySelector('#selectA');
     const selB = document.querySelector('#selectB');
@@ -251,6 +251,59 @@ window.likeChar = likeChar; // 暴露给全局
         selB.insertAdjacentHTML('beforeend', opt);
       });
     });
+
+    // 绑定“保存设定”按钮 (创建/更新 OC)
+    const saveBtn = document.querySelector('#saveCharBtn');
+    const tagKeyInput = document.querySelector('#tagKey');
+    const tagValInput = document.querySelector('#tagVal');
+    const addTagBtn = document.querySelector('#addTagBtn');
+    const tagListEl = document.querySelector('#tagList');
+    
+    // 临时存储标签
+    let currentTags = [];
+
+    // 检查是否是编辑模式
+    const params = new URLSearchParams(window.location.search);
+    const editId = params.get('edit');
+    if (editId) {
+      // 加载已有数据
+      try {
+        const char = await request(`/char/${editId}`);
+        document.querySelector('#charName').value = char.name;
+        document.querySelector('#charGender').value = char.gender || '男';
+        document.querySelector('#charAge').value = char.age || '';
+        document.querySelector('#charAppearance').value = char.appearance || '';
+        document.querySelector('#charBio').value = char.description || char.bio || '';
+        
+        // 恢复图片预览
+        if (char.image) {
+          document.querySelector('#charAvatarPreview').src = getImgUrl(char.image);
+        }
+
+        // 恢复 Tags
+        if (Array.isArray(char.tags)) {
+          currentTags = char.tags;
+          renderTags();
+          
+          // 尝试回填种族和职业到下拉框 (如果 tags 里有)
+          const raceTag = currentTags.find(t => t.key === '种族');
+          if (raceTag) document.querySelector('#charRace').value = raceTag.value;
+          
+          const jobTag = currentTags.find(t => t.key === '职业');
+          if (jobTag) document.querySelector('#charJob').value = jobTag.value;
+        }
+
+        // 修改按钮状态
+        if (saveBtn) {
+          saveBtn.textContent = '更新设定';
+          saveBtn.setAttribute('data-mode', 'update');
+          saveBtn.setAttribute('data-id', editId);
+        }
+      } catch (e) {
+        console.error('Failed to load char for edit:', e);
+        showAlert('无法加载角色数据: ' + e.message);
+      }
+    }
 
     // 织梦生成逻辑 (genBtn 点击事件)
     // 1. 点击后显示 loadingArea (删除 d-none 类)
@@ -303,61 +356,49 @@ window.likeChar = likeChar; // 暴露给全局
             pre.classList.remove('typewriter-cursor'); // 移除光标
             genBtn.disabled = false;
             genBtn.textContent = '✨ 再次生成';
+            
+            // 提示用户已自动保存
+            alert('✨ 梦境已收录到您的故事集中');
           }
         }
         type();
 
       } catch (error) {
         console.error('Generate Story Failed:', error);
-        alert('生成失败: ' + error.message);
+        showAlert('生成失败: ' + error.message);
         genBtn.disabled = false;
-        genBtn.textContent = '✨ 织梦生成';
+        genBtn.textContent = '✨ 开始织梦';
         document.querySelector('#loadingArea').classList.add('d-none');
       }
     });
 
     // 绑定“保存设定”按钮 (创建 OC)
-    const saveBtn = document.querySelector('#saveCharBtn');
-    const tagKeyInput = document.querySelector('#tagKey');
-    const tagValInput = document.querySelector('#tagVal');
-    const addTagBtn = document.querySelector('#addTagBtn');
-    const tagListEl = document.querySelector('#tagList');
+    // 逻辑已前置定义
     
-    // 临时存储标签
-    let currentTags = [];
-
-    // 添加标签逻辑 (addTagBtn 点击事件)
-    // 将输入的键值对渲染到 tagList 中，并以数组形式存储以便保存
-    addTagBtn?.addEventListener('click', () => {
-      const k = tagKeyInput.value.trim();
-      const v = tagValInput.value.trim();
-      if (k && v) {
-        currentTags.push({ key: k, value: v });
-        renderTags();
-        tagKeyInput.value = '';
-        tagValInput.value = '';
-      }
-    });
-
+    // --- 标签系统逻辑 ---
     function renderTags() {
       if (!tagListEl) return;
-      tagListEl.innerHTML = currentTags.map(t => 
-        `<span class="badge text-bg-light border me-1">${t.key}: ${t.value}</span>`
-      ).join('');
+      tagListEl.innerHTML = '';
+      currentTags.forEach((t, i) => {
+          const span = document.createElement('span');
+          span.className = 'badge bg-light text-dark border me-2 mb-2 p-2';
+          span.innerHTML = `${t.key}: ${t.value} <i class="bi bi-x ms-2" style="cursor:pointer;"></i>`;
+          span.querySelector('i').addEventListener('click', () => {
+              currentTags.splice(i, 1);
+              renderTags();
+          });
+          tagListEl.appendChild(span);
+      });
     }
 
-    // --- 头像上传预览逻辑 ---
-    const avatarInput = document.querySelector('#charAvatarInput');
-    const avatarPreview = document.querySelector('#charAvatarPreview');
-    
-    avatarInput?.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          avatarPreview.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
+    addTagBtn?.addEventListener('click', () => {
+      const key = tagKeyInput.value.trim();
+      const val = tagValInput.value.trim();
+      if (key && val) {
+        currentTags.push({ key, value: val });
+        tagKeyInput.value = '';
+        tagValInput.value = '';
+        renderTags();
       }
     });
 
@@ -378,7 +419,8 @@ window.likeChar = likeChar; // 暴露给全局
       if (!name) return alert('请输入角色姓名');
 
       // 整合标签 (将种族和职业加入 Tags)
-      const finalTags = [...currentTags];
+      // 注意：如果是编辑模式，需要避免重复添加，这里简单起见每次都重新生成
+      const finalTags = [...currentTags.filter(t => t.key !== '种族' && t.key !== '职业')];
       if (race) finalTags.push({ key: '种族', value: race });
       if (job) finalTags.push({ key: '职业', value: job });
 
@@ -399,24 +441,35 @@ window.likeChar = likeChar; // 暴露给全局
         formData.append('image', avatarFile);
       }
 
+      const isUpdate = saveBtn.getAttribute('data-mode') === 'update';
+      const updateId = saveBtn.getAttribute('data-id');
+
       try {
         saveBtn.disabled = true;
-        saveBtn.textContent = '保存中...';
+        saveBtn.textContent = isUpdate ? '更新中...' : '保存中...';
         
         // 2. 异步提交
-        // request 函数会自动检测 FormData 并跳过 Content-Type 设置，浏览器会自动生成 boundary
-        await request('/char/add', {
-          method: 'POST',
+        const url = isUpdate ? `/char/update/${updateId}` : '/char/add';
+        const method = isUpdate ? 'PUT' : 'POST';
+
+        await request(url, {
+          method: method,
           body: formData
         });
 
-        alert('✨ 角色创建成功！');
-        location.reload(); 
+        await showAlert(isUpdate ? '✨ 角色更新成功！' : '✨ 角色创建成功！');
+        
+        // 如果是更新，返回个人中心；如果是新建，刷新页面
+        if (isUpdate) {
+            location.href = 'profile.html';
+        } else {
+            location.reload(); 
+        }
         
       } catch (error) {
-        alert('创建失败: ' + error.message);
+        alert((isUpdate ? '更新失败: ' : '创建失败: ') + error.message);
         saveBtn.disabled = false;
-        saveBtn.textContent = '保存设定';
+        saveBtn.textContent = isUpdate ? '更新设定' : '保存设定';
       }
     });
 
@@ -572,7 +625,7 @@ window.likeChar = likeChar; // 暴露给全局
 
       } catch (error) {
         console.error('AI Polish Failed:', error);
-        alert('AI 润色失败: ' + error.message);
+        showAlert('AI 润色失败: ' + error.message);
         aiPolishBtn.disabled = false;
         aiPolishBtn.textContent = 'AI 润色';
       }
@@ -911,19 +964,34 @@ async function initDetail() {
       
       // 4. 渲染故事卡片
       myStoryGrid.innerHTML = '';
-      if (myStories.length === 0) {
+      
+      // 过滤掉已归档的故事 (假设 status === 'archived' 为归档状态)
+      // 后端返回的数据如果包含 status 字段
+      const activeStories = myStories.filter(s => s.status !== 'archived');
+      
+      if (activeStories.length === 0) {
         myStoryGrid.innerHTML = `<div class="col-12 text-center text-muted py-3">暂无故事，去工作台“织梦”吧</div>`;
       } else {
-        myStories.forEach(story => {
+        activeStories.forEach(story => {
           const cardHtml = `
             <div class="col">
               <div class="card h-100">
-                <div class="card-body">
-                  <div class="h6 text-truncate" title="${story.title}">${story.title}</div>
-                  <p class="text-muted small mb-2 text-truncate-2">${story.content.slice(0, 50)}...</p>
+                <div class="card-body position-relative">
+                  <!-- 右上角参与者标签 -->
+                  <div class="position-absolute top-0 end-0 m-2">
+                     ${story.participants?.map(p => `
+                       <span class="badge bg-warning text-dark border border-light shadow-sm mb-1" title="RID: ${p.rid || 'N/A'}">
+                         ${p.name} <small class="text-muted" style="font-size:0.7em;">${p.rid || ''}</small>
+                       </span>
+                     `).join('<br>') || ''}
+                  </div>
+                  
+                  <div class="h6 text-truncate pe-4" title="${story.title}">${story.title}</div>
+                  <p class="text-muted small mb-2 text-truncate-2 mt-3">${story.content.slice(0, 50)}...</p>
                   <div class="d-flex gap-2">
-                    <button class="btn btn-primary btn-sm" onclick="alert('预览功能开发中:\\n${story.title}')">预览</button>
-                    <button class="btn btn-outline-secondary btn-sm">归档</button>
+                    <button class="btn btn-primary btn-sm" onclick="location.href='story.html?id=${story.id}'">预览</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="archiveStory(${story.id})">归档</button>
+                    <button class="btn btn-outline-danger btn-sm" onclick="deleteStory(${story.id})">删除</button>
                   </div>
                 </div>
               </div>
@@ -983,12 +1051,36 @@ async function initDetail() {
 
   // --- 辅助动作函数 ---
   window.deleteChar = async (id) => {
-    if (!confirm('确定要删除这个角色吗？此操作不可恢复。')) return;
+    if (!(await showConfirm('确定要删除这个角色吗？此操作不可恢复。'))) return;
     try {
       // 需后端支持 DELETE 接口
-      alert('删除功能需后端支持 DELETE /char/:id');
+      showAlert('删除功能需后端支持 DELETE /char/:id');
     } catch (e) {
-      alert('删除失败');
+      showAlert('删除失败');
+    }
+  };
+
+  // 删除故事
+  window.deleteStory = async (id) => {
+    if (!(await showConfirm('确定要将这段记忆从梦境中抹去吗？此操作不可恢复。'))) return;
+    try {
+      await request(`/story/${id}`, { method: 'DELETE' });
+      await showAlert('记忆已抹去');
+      initProfile(); // 重新加载列表
+    } catch (e) {
+      showAlert('删除失败: ' + e.message);
+    }
+  };
+
+  // 归档故事
+  window.archiveStory = async (id) => {
+    if (!confirm('确定要将此故事归档吗？归档后故事不会删除，但将不再显示在您的“故事集”中。')) return;
+    try {
+      await request(`/story/${id}/archive`, { method: 'PATCH' });
+      alert('已归档');
+      initProfile(); // 重新加载列表
+    } catch (e) {
+      alert('归档失败: ' + e.message);
     }
   };
 
@@ -1005,6 +1097,57 @@ async function initDetail() {
     }
   };
 
+  // 6. 故事阅读页 (story.html)
+  async function initStory() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    
+    if (!id) {
+      alert('未指定故事ID');
+      location.href = 'profile.html';
+      return;
+    }
+
+    const storyArea = document.querySelector('#storyArea');
+    const errorArea = document.querySelector('#errorArea');
+    const loading = document.querySelector('#loading');
+    
+    // 元素引用
+    const titleEl = document.querySelector('#storyTitle');
+    const timeEl = document.querySelector('#storyTime');
+    const contentEl = document.querySelector('#storyContent');
+    const charListEl = document.querySelector('#charList');
+    
+    if (!storyArea) return; // 不在故事页
+
+    try {
+      // 获取详情
+      const story = await request(`/story/${id}`);
+      
+      // 填充数据
+      titleEl.textContent = story.title || '无题梦境';
+      timeEl.textContent = new Date(story.createdAt).toLocaleString();
+      contentEl.textContent = story.content; // 使用 textContent 保持格式 (pre-wrap)
+
+      // 渲染参与角色头像
+      if (story.participants && story.participants.length > 0) {
+        charListEl.innerHTML = story.participants.map(char => {
+            const img = getImgUrl(char.image);
+            return `<img src="${img}" class="char-avatar-small" title="${char.name}" alt="${char.name}">`;
+        }).join('');
+      }
+
+      // 显示内容
+      loading.classList.add('d-none');
+      storyArea.classList.remove('d-none');
+
+    } catch (e) {
+      console.error('Story Load Failed:', e);
+      loading.classList.add('d-none');
+      errorArea.classList.remove('d-none');
+    }
+  }
+
   // --- 全局入口 ---
   document.addEventListener('DOMContentLoaded', () => {
     const page = document.body.getAttribute('data-page');
@@ -1012,4 +1155,5 @@ async function initDetail() {
     if (page === 'workshop') initWorkshop();
     if (page === 'detail') initDetail();
     if (page === 'profile') initProfile();
+    if (page === 'story') initStory();
   });

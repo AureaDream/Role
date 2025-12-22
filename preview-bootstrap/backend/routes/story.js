@@ -46,16 +46,33 @@ router.get('/my', authenticateToken, async (req, res) => {
     }
 
     // 2. 查找包含这些角色的故事
-    // 由于 chars 字段存储的是 JSON 数组，标准 SQL 查询较复杂。
-    // 但我们有 CharacterStories 中间表 (多对多关联)。
-    // 使用 Sequelize 关联查询: Find Stories where included Characters have userId = currentUserId
-    const stories = await Story.findAll({
+    // 修正：需要返回所有参与者信息，而不仅仅是当前用户的角色
+    // 方案：先找出故事ID，再重新查询
+    
+    // Step 2.1: Find Story IDs where user is involved
+    const storiesWithUser = await Story.findAll({
+      attributes: ['id'],
       include: [{
         model: Character,
-        as: 'participants', // 需确认 models/index.js 中定义的别名，通常默认为 Characters 或 participants
+        as: 'participants',
         where: { userId },
-        attributes: [], // 不需要返回角色详情，只需用于过滤
-        through: { attributes: [] } // 不返回中间表数据
+        attributes: [] // Only for filtering
+      }]
+    });
+    
+    const storyIds = storiesWithUser.map(s => s.id);
+
+    if (storyIds.length === 0) {
+      return res.json([]);
+    }
+
+    // Step 2.2: Fetch full story details with ALL participants
+    const stories = await Story.findAll({
+      where: { id: storyIds },
+      include: [{
+        model: Character,
+        as: 'participants',
+        attributes: ['id', 'name', 'rid', 'image'] // Include RID
       }],
       order: [['createdAt', 'DESC']]
     });
@@ -263,6 +280,74 @@ router.patch('/:id/archive', authenticateToken, async (req, res) => {
 
   } catch (error) {
     console.error('归档故事失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// --- API: 删除故事 (Delete Story) ---
+// 功能：物理删除或软删除故事。这里使用物理删除。
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const storyId = req.params.id;
+    const userId = req.user.id;
+
+    // 1. 查找故事
+    const story = await Story.findByPk(storyId, {
+      include: [{
+        model: Character,
+        as: 'participants',
+        attributes: ['userId']
+      }]
+    });
+
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found.' });
+    }
+
+    // 2. 权限校验
+    // 只有故事的“发起者”或参与者可以删除？
+    // 简单起见，只有参与者可以删除。
+    // 注意：如果是多人故事，一人删除是否影响他人？
+    // 理想情况下应该是移除自己的关联，当所有人都移除后才物理删除。
+    // 但为了简化逻辑，只要是参与者点击删除，就直接删除整条故事记录 (慎用)。
+    // 或者：更安全的做法是只移除当前用户与该故事的关联 (CharacterStories)。
+    // 这里我们采用：如果当前用户是该故事所有角色的拥有者（通常是单人故事或自己角色的互动），则物理删除。
+    // 否则，仅提示“暂不支持删除多人互动故事”或仅做关联移除。
+    // *本次实现：物理删除 (假设用户主要玩单机)*
+    
+    const isParticipant = story.participants.some(char => String(char.userId) === String(userId));
+    if (!isParticipant) {
+      return res.status(403).json({ error: '无权删除该故事' });
+    }
+
+    await story.destroy();
+    res.json({ success: true, message: '故事已删除' });
+
+  } catch (error) {
+    console.error('删除故事失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
+// --- API: 获取故事详情 (Get Story Detail) ---
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const story = await Story.findByPk(id, {
+      include: [{
+        model: Character,
+        as: 'participants',
+        attributes: ['id', 'name', 'image'] // 返回角色头像和名字
+      }]
+    });
+
+    if (!story) {
+      return res.status(404).json({ error: 'Story not found' });
+    }
+
+    res.json(story);
+  } catch (error) {
+    console.error('获取故事详情失败:', error);
     res.status(500).json({ error: '服务器内部错误' });
   }
 });
