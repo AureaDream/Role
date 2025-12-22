@@ -7,8 +7,16 @@ const HOST_BASE = isLocal ? 'http://localhost:3000' : 'http://120.79.120.7:3000'
 function getImgUrl(path) {
   if (!path) return 'https://placehold.co/400?text=No+Image';
   if (path.startsWith('http')) return path;
-  // 如果是相对路径 (如 /uploads/xxx)，拼接 HOST_BASE
-  return `${HOST_BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+  
+  // 修复：自动检测并拼接 /uploads/ 前缀
+  // 如果数据库存的是 "123.jpg"，需要拼成 "/uploads/123.jpg" 再拼 HOST_BASE
+  // 如果存的是 "/uploads/123.jpg"，直接拼 HOST_BASE
+  let cleanPath = path;
+  if (!cleanPath.startsWith('/') && !cleanPath.includes('uploads')) {
+      cleanPath = `/uploads/${cleanPath}`;
+  }
+  
+  return `${HOST_BASE}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
 }
 
 // --- 核心工具：请求封装 ---
@@ -42,16 +50,29 @@ async function request(endpoint, options = {}) {
       } catch (e) {
         errorMsg += `: ${errorText.slice(0, 50)}...`;
       }
+
+      // Token 失效自动清除
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem('token');
+      }
+
       throw new Error(errorMsg);
     }
 
     const data = await res.json();
     if (data.success === false) throw new Error(data.msg);
     return data;
-  } catch (err) {
-    console.error(`API 错误 [${endpoint}]:`, err);
-    alert(err.message || '网络请求失败');
-    throw err;
+  } catch (e) {
+    console.error(`API 错误 [${endpoint}]:`, e);
+    
+    // 统一处理鉴权失败 (401/403)
+    // 注意：request 函数内部抛出的 Error(msg) 可能包含状态码描述，也可能只是后端返回的 msg
+    // 我们主要依赖 res.status 但这里已经 catch 了，fetch 层的 res 对象不可见
+    // 所以最好在 throw 之前处理，或者在这里通过错误信息判断
+    
+    // 但更优的方式是在上方 !res.ok 的时候处理
+    // 这里只负责兜底 alert，除非调用方 catch 了
+    throw e;
   }
 }
 
@@ -86,6 +107,19 @@ async function initHome() {
   if (!grid) return; // 确保在首页
 
   try {
+    // 骨架屏加载动画 (Skeleton Screen)
+    grid.innerHTML = Array(6).fill(0).map(() => `
+      <div class="col">
+        <div class="card h-100 border-0 shadow-sm">
+          <div class="skeleton" style="padding-bottom: 100%;"></div>
+          <div class="card-body">
+            <div class="skeleton mb-2" style="height: 24px; width: 60%;"></div>
+            <div class="skeleton" style="height: 16px; width: 90%;"></div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+
     // 获取后端动态数据 (OC 广场列表)
     const charList = await request('/char/public');
     
@@ -106,20 +140,28 @@ async function initHome() {
       // --- HTML 拼接逻辑 ---
       // 构建 Bootstrap 卡片结构
       // 包含: 图片(img-top), 名字(card-title), 描述(card-text)
+      // 优化：点赞按钮样式 (Square, Bottom-Right)
+      // 如果已点赞，使用 .active 类和实心图标；否则使用空心图标
+      const isLiked = char.isLiked;
+      const likeBtnClass = isLiked ? 'btn-like-square active' : 'btn-like-square';
+      const likeIconClass = isLiked ? 'bi-hand-thumbs-up-fill' : 'bi-hand-thumbs-up';
+      
       const cardHtml = `
         <div class="col">
-          <div class="card h-100 shadow-sm hover-card" onclick="console.log('Selected Char ID:', ${char.id}); location.href='pages/detail.html?id=${char.id}'" style="cursor:pointer; transition: all 0.3s ease;">
+          <div class="card h-100 shadow-sm hover-lift position-relative" onclick="console.log('Selected Char ID:', ${char.id}); location.href='pages/detail.html?id=${char.id}'" style="cursor:pointer;">
             <img src="${imgUrl}" class="card-img-top" style="aspect-ratio: 1/1; object-fit: cover;" alt="${char.name}" onerror="this.src='https://placehold.co/400?text=No+Image'">
-            <div class="card-body">
+            <div class="card-body pb-5">
               <h5 class="card-title text-truncate">${char.name}</h5>
               <div class="card-text text-muted small text-truncate-2" style="min-height: 2.5em;">
                 ${char.description || char.intro || '暂无描述'}
               </div>
             </div>
-            <div class="card-footer bg-transparent border-top-0">
-              <small class="text-body-secondary">
-                <i class="bi bi-heart-fill text-danger"></i> ${char.likes || 0} 热度
-              </small>
+            
+            <!-- Floating Action Button -->
+            <div class="card-footer-action">
+              <button class="${likeBtnClass} shadow-sm" onclick="likeChar(${char.id}, this)" title="点赞">
+                <i class="bi ${likeIconClass}"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -136,15 +178,63 @@ async function initHome() {
   }
 }
 
-// 点赞功能
+// 点赞功能处理函数
 async function likeChar(id, btn) {
+  // 阻止冒泡，防止触发卡片点击跳转
+  if (event) event.stopPropagation();
+
   try {
+    // 1. 获取当前状态 (根据是否包含 active 类)
+    const isActive = btn.classList.contains('active');
+    
+    // 2. 乐观 UI 更新 (Optimistic UI Update)
+    if (isActive) {
+      // 如果当前是激活状态 -> 变为非激活 (移除 active，图标变空心)
+      btn.classList.remove('active');
+      btn.innerHTML = `<i class="bi bi-hand-thumbs-up"></i>`;
+    } else {
+      // 如果当前是非激活状态 -> 变为激活 (添加 active，图标变实心)
+      btn.classList.add('active');
+      btn.innerHTML = `<i class="bi bi-hand-thumbs-up-fill"></i>`;
+    }
+
+    // 3. 发送网络请求
     const res = await request(`/char/like/${id}`, { method: 'POST' });
-    btn.innerHTML = `❤️ ${res.count}`;
+    
+    // 4. 状态一致性检查 (如果后端返回状态不一致，回滚 UI)
+    // res.isLiked 是后端最新的真实状态
+    // !isActive 是我们期望的新状态
+    if (res.isLiked !== !isActive) {
+       console.warn('UI state mismatch, reverting...');
+       if (res.isLiked) {
+         btn.classList.add('active');
+         btn.innerHTML = `<i class="bi bi-hand-thumbs-up-fill"></i>`;
+       } else {
+         btn.classList.remove('active');
+         btn.innerHTML = `<i class="bi bi-hand-thumbs-up"></i>`;
+       }
+    }
+    
   } catch (e) {
-    // error handled by request
+    if (e.message.includes('401') || e.message.includes('403') || e.message.includes('令牌') || e.message.includes('Token')) {
+      if (confirm('您尚未登录或登录已过期，是否前往登录页？')) {
+        window.location.href = '/pages/login.html';
+      }
+    } else {
+      alert(e.message || '点赞失败');
+    }
+    // 发生错误，回滚 UI (由于无法获知原状态，这里只能简单移除 active，或者重新加载列表)
+    // 简单回滚：如果是 active，移除；反之亦然 (假设失败意味着操作未生效)
+    if (btn.classList.contains('active')) {
+       btn.classList.remove('active');
+       btn.innerHTML = `<i class="bi bi-hand-thumbs-up"></i>`;
+    } else {
+       btn.classList.add('active');
+       btn.innerHTML = `<i class="bi bi-hand-thumbs-up-fill"></i>`;
+    }
   }
 }
+window.likeChar = likeChar; // 暴露给全局
 
   // 2. 工作台 (workshop.html)
   function initWorkshop() {
@@ -171,7 +261,8 @@ async function likeChar(id, btn) {
       const charIdB = selB.value;
       const keywords = document.querySelector('#keywords').value;
       
-      if (!charIdA || !charIdB) return alert('请选择主角和配角');
+      // 允许配角B为空 (单人故事模式)
+      if (!charIdA) return alert('请至少选择主角');
       if (!keywords) return alert('请输入场景关键词');
 
       // 显示 Loading
@@ -361,6 +452,7 @@ async function likeChar(id, btn) {
       const race = raceInput.value.trim();
       
       // 策略选择：如果用户只填了姓名（且种族为空），则触发 AI 智能建议
+      // 注意：如果用户想使用【无】作为配角B，charIdB 将为空字符串，这里只校验 name
       if (name && !race) {
         try {
            diceBtn.disabled = true;
@@ -551,6 +643,7 @@ async function initDetail() {
     // 1. 使用 correct 字段名 'image' (原代码误用了 avatar)
     // 2. 添加加载失败时的金色占位图
     const imgEl = document.querySelector('#avatar');
+    imgEl.className = 'rounded avatar-frame'; // 应用新样式类
     imgEl.src = getImgUrl(oc.image);
     imgEl.onerror = function() {
       // 金色调默认占位图 (使用 Placehold.co)
@@ -561,14 +654,31 @@ async function initDetail() {
     document.querySelector('#appearance').textContent = oc.appearance || '暂无';
     document.querySelector('#background').textContent = oc.description || oc.bio || '暂无'; // 后端字段可能是 description
     
-    // 渲染 Tags
+    // 优化：详细设定区域背景
+    document.querySelector('.card.mt-3 .card-body').classList.add('detail-section');
+    
+    // 渲染 Tags (及年龄)
     const tagWrap = document.querySelector('#tags');
-    if (tagWrap && Array.isArray(oc.tags)) {
-      tagWrap.innerHTML = oc.tags.map(t => 
-        `<span class="badge rounded-pill border border-warning text-dark bg-transparent fw-normal me-2 mb-2 p-2">
-          ${t.key}: ${t.value}
-         </span>`
-      ).join('');
+    if (tagWrap) {
+      let tagHtml = '';
+      
+      // 1. 添加年龄标签
+      if (oc.age) {
+        tagHtml += `<span class="badge rounded-pill border border-warning text-dark bg-transparent fw-normal me-2 mb-2 p-2">
+          年龄: ${oc.age}
+         </span>`;
+      }
+
+      // 2. 添加其他标签
+      if (Array.isArray(oc.tags)) {
+        tagHtml += oc.tags.map(t => 
+          `<span class="badge rounded-pill border border-warning text-dark bg-transparent fw-normal me-2 mb-2 p-2">
+            ${t.key}: ${t.value}
+           </span>`
+        ).join('');
+      }
+      
+      tagWrap.innerHTML = tagHtml;
     }
 
   } catch (error) {
@@ -583,19 +693,22 @@ async function initDetail() {
   const postBtn = document.querySelector('#postBtn');
   const commentListEl = document.querySelector('#commentList');
 
+  const toCommentBtn = document.querySelector('#toCommentBtn');
+  
   // 1. 获取社交数据
   async function loadSocial() {
     try {
       const res = await request(`/char/${id}/social`);
       
-      // 更新点赞状态
-      likeCountEl.textContent = res.likeCount;
-      if (res.isLiked) {
-        likeBtn.classList.replace('btn-outline-danger', 'btn-danger');
-        likeBtn.innerHTML = `<i class="bi bi-heart-fill"></i> <span id="likeCount">${res.likeCount}</span>`;
+      // 更新点赞状态 (Square Button Logic)
+      const isLiked = res.isLiked;
+      
+      if (isLiked) {
+        likeBtn.classList.add('active');
+        likeBtn.innerHTML = `<i class="bi bi-hand-thumbs-up-fill"></i>`;
       } else {
-        likeBtn.classList.replace('btn-danger', 'btn-outline-danger');
-        likeBtn.innerHTML = `<i class="bi bi-heart"></i> <span id="likeCount">${res.likeCount}</span>`;
+        likeBtn.classList.remove('active');
+        likeBtn.innerHTML = `<i class="bi bi-hand-thumbs-up"></i>`; // 空心图标
       }
 
       // 渲染评论列表
@@ -606,37 +719,69 @@ async function initDetail() {
     }
   }
 
+  // 滚动到评论区 (移除 toCommentBtn 监听，因为按钮已删除)
+  // toCommentBtn?.addEventListener('click', ...);
+
   function renderComments(list) {
     if (!list || list.length === 0) {
-      commentListEl.innerHTML = '<li class="list-group-item text-center text-muted border-0">暂无评论，快来抢沙发吧~</li>';
+      commentListEl.innerHTML = '<li class="list-group-item text-center text-muted border-0 py-4">暂无评论，快来抢沙发吧~</li>';
       return;
     }
-    commentListEl.innerHTML = list.map(c => `
-      <li class="list-group-item border-0 border-bottom">
-        <div class="d-flex justify-content-between">
-          <span class="fw-bold text-primary small">${c.author?.username || '神秘访客'}</span>
-          <span class="text-muted small">${new Date(c.createdAt).toLocaleDateString()}</span>
+    
+    // 使用 commentTmpl 模板渲染
+    commentListEl.innerHTML = list.map(c => {
+      // 头像占位符 (如果是真实项目，这里应该有 userAvatar 字段)
+      const avatarUrl = 'https://placehold.co/100?text=' + (c.author?.username?.[0] || 'U');
+      
+      return `
+      <li class="list-group-item border-0 border-bottom comment-item py-3">
+        <div class="d-flex gap-3">
+          <img src="${avatarUrl}" class="rounded-circle comment-avatar object-fit-cover" alt="User">
+          <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="fw-bold text-dark small">${c.author?.username || '神秘访客'}</span>
+              <span class="text-muted small" style="font-size: 12px;">${new Date(c.createdAt).toLocaleString()}</span>
+            </div>
+            <p class="mb-0 text-secondary" style="font-size: 14px; line-height: 1.6;">${c.content}</p>
+          </div>
         </div>
-        <p class="mb-1 mt-1">${c.content}</p>
       </li>
-    `).join('');
+    `}).join('');
   }
 
-  // 2. 点赞事件
+  // 2. 点赞事件 (Detail Page)
   likeBtn?.addEventListener('click', async () => {
     try {
+      // 1. 获取当前状态
+      const isActive = likeBtn.classList.contains('active');
+      
+      // 2. 乐观更新
+      if (isActive) {
+        likeBtn.classList.remove('active');
+        likeBtn.innerHTML = `<i class="bi bi-hand-thumbs-up"></i>`;
+      } else {
+        likeBtn.classList.add('active');
+        likeBtn.innerHTML = `<i class="bi bi-hand-thumbs-up-fill"></i>`;
+      }
+
+      // 3. 发送请求
       const res = await request(`/char/like/${id}`, { method: 'POST' });
       
-      // 切换按钮样式
-      if (res.isLiked) {
-        likeBtn.classList.replace('btn-outline-danger', 'btn-danger');
-        likeBtn.innerHTML = `<i class="bi bi-heart-fill"></i> <span id="likeCount">${res.likeCount}</span>`;
-      } else {
-        likeBtn.classList.replace('btn-danger', 'btn-outline-danger');
-        likeBtn.innerHTML = `<i class="bi bi-heart"></i> <span id="likeCount">${res.likeCount}</span>`;
+      // 4. 校准
+      if (res.isLiked !== !isActive) {
+         console.warn('Like status mismatch, reverting UI');
+         loadSocial(); 
       }
+      
     } catch (e) {
-      if (e.message.includes('401')) alert('请先登录再点赞');
+      if (e.message.includes('401') || e.message.includes('403') || e.message.includes('令牌') || e.message.includes('Token')) {
+         if (confirm('您尚未登录或登录已过期，是否前往登录页？')) {
+           window.location.href = '/pages/login.html';
+         }
+      } else {
+         alert(e.message || '点赞失败');
+      }
+      loadSocial();
     }
   });
 
@@ -645,21 +790,66 @@ async function initDetail() {
     const content = commentInput.value.trim();
     if (!content) return alert('请输入评论内容');
 
+    let isProcessing = true; // 处理状态锁
+
     try {
       postBtn.disabled = true;
+      postBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+      
+      // 模拟插入 (Optimistic UI): 立即显示在列表顶部
+      // 注意：这里没有真实 ID 和时间，仅作视觉反馈
+      const tempId = 'temp-' + Date.now();
+      const currentUser = { username: '我' }; // 假设当前用户
+      
+      // 如果之前是空状态，先清空
+      if (commentListEl.innerHTML.includes('暂无评论')) {
+        commentListEl.innerHTML = '';
+      }
+
+      const tempHtml = `
+        <li id="${tempId}" class="list-group-item border-0 border-bottom comment-item py-3 bg-light">
+          <div class="d-flex gap-3">
+            <img src="https://placehold.co/100?text=Me" class="rounded-circle comment-avatar object-fit-cover">
+            <div class="flex-grow-1">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold text-dark small">我 (发送中...)</span>
+                <span class="text-muted small">刚刚</span>
+              </div>
+              <p class="mb-0 text-secondary">${content}</p>
+            </div>
+          </div>
+        </li>
+      `;
+      commentListEl.insertAdjacentHTML('afterbegin', tempHtml);
+      commentInput.value = ''; // 清空输入框
+
+      // 发送真实请求
       const res = await request(`/char/comment/${id}`, {
         method: 'POST',
         body: { content }
       });
       
-      commentInput.value = ''; // 清空输入框
-      // 重新加载社交数据 (或者手动插入 DOM)
+      // 请求成功，移除临时节点，重新加载列表 (或替换临时节点为真实节点)
+      // 为简单起见，这里重新加载列表以确保时间戳和用户信息准确
+      document.getElementById(tempId)?.remove();
       loadSocial();
       
     } catch (e) {
-      alert('评论失败: ' + e.message);
+      if (e.message.includes('401') || e.message.includes('403') || e.message.includes('令牌') || e.message.includes('Token')) {
+         if (confirm('您尚未登录或登录已过期，是否前往登录页？')) {
+           window.location.href = '/pages/login.html';
+         }
+      } else {
+         alert('评论失败: ' + e.message);
+      }
+      // 移除临时节点并恢复输入
+      const tempNode = commentListEl.querySelector('.bg-light'); // 假设只有一个临时节点
+      if(tempNode) tempNode.remove();
+      commentInput.value = content;
     } finally {
+      isProcessing = false;
       postBtn.disabled = false;
+      postBtn.textContent = '发布';
     }
   });
 

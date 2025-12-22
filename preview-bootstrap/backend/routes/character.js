@@ -14,13 +14,13 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1]; // 格式: Bearer <token>
 
   if (!token) {
-    return res.status(401).json({ error: 'Unauthorized: No token provided' });
+    return res.status(401).json({ error: '未经授权：未提供令牌' });
   }
 
   // 验证 Token (注意：生产环境应将密钥存入 .env)
   jwt.verify(token, 'secret_key_123456', (err, user) => {
     if (err) {
-      return res.status(403).json({ error: 'Forbidden: Invalid or expired token' });
+      return res.status(403).json({ error: '禁止：令牌无效或过期' });
     }
     req.user = user; // 将解析出的用户信息 (id, username) 挂载到 req 对象
     next();

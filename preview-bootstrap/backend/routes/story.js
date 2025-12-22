@@ -175,8 +175,8 @@ router.post('/generate', authenticateToken, async (req, res) => {
     const userId = req.user.id; // 获取当前用户ID (虽此处逻辑暂不需要，但可用于后续权限校验或记录)
 
     // 简单校验
-    if (!charIdA || !charIdB) {
-      return res.status(400).json({ error: 'Please provide both charIdA and charIdB.' });
+    if (!charIdA) {
+      return res.status(400).json({ error: 'Please provide at least charIdA.' });
     }
     if (!keywords) {
       return res.status(400).json({ error: 'Please provide keywords/scene.' });
@@ -184,13 +184,16 @@ router.post('/generate', authenticateToken, async (req, res) => {
 
     // 1. 数据检索：查找角色信息
     // 从数据库调取设定，包括姓名、性格、外貌及 Tags
+    const queryIds = [charIdA];
+    if (charIdB) queryIds.push(charIdB);
+
     const chars = await Character.findAll({
       where: {
-        id: { [Op.in]: [charIdA, charIdB] }
+        id: { [Op.in]: queryIds }
       }
     });
 
-    if (chars.length !== 2) {
+    if (chars.length !== queryIds.length) {
       return res.status(404).json({ error: 'One or more characters not found.' });
     }
 
@@ -202,7 +205,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     // 3. 结果存储：保存到 Stories 表
     // 使用 Sequelize 持久化生成的故事内容
     const newStory = await Story.create({
-      chars: [charIdA, charIdB], // 关联角色 ID 数组
+      chars: queryIds, // 关联角色 ID 数组
       title: `${keywords.substring(0, 10)}... 的梦境`,
       content: storyContent,
       prompt: keywords,
@@ -210,7 +213,7 @@ router.post('/generate', authenticateToken, async (req, res) => {
     });
 
     // 建立多对多关联
-    await newStory.addParticipants([charIdA, charIdB]);
+    await newStory.addParticipants(queryIds);
 
     res.json({
       success: true,
