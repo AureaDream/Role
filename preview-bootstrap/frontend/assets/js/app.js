@@ -1,10 +1,10 @@
 // --- 基础配置 ---
-const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
 const API_BASE = isLocal ? 'http://localhost:3000/api' : 'http://120.79.120.7:3000/api';
 const HOST_BASE = isLocal ? 'http://localhost:3000' : 'http://120.79.120.7:3000';
 
 // --- 辅助函数：图片路径处理 ---
-function getImgUrl(path) {
+function getImgUrl(path, type = 'default') {
   if (!path) return 'https://placehold.co/400?text=No+Image';
   if (path.startsWith('http')) return path;
   
@@ -13,13 +13,18 @@ function getImgUrl(path) {
       return `${HOST_BASE}${path}`;
   }
   
-  // 兼容旧逻辑：如果只是文件名或 uploads 路径
   let cleanPath = path;
-  if (!cleanPath.startsWith('/') && !cleanPath.includes('uploads')) {
-      // 这里的假设是：如果只是文件名，且没有被转换为 API URL，说明可能是旧数据
-      // 或者在某些列表接口返回了 raw filename
-      // 最好是尽量让后端返回完整 API URL
-      cleanPath = `/uploads/${cleanPath}`;
+  
+  // 检查是否已经包含路径前缀 (uploads/ 或 image/ 或 /image/ 等)
+  const hasPrefix = cleanPath.startsWith('/') || cleanPath.startsWith('uploads/') || cleanPath.startsWith('image/');
+  
+  // 仅在没有前缀时进行拼接
+  if (!hasPrefix) {
+      if (type === 'avatar') {
+          cleanPath = `/image/${cleanPath}`;
+      } else {
+          cleanPath = `/uploads/${cleanPath}`;
+      }
   }
   
   return `${HOST_BASE}${cleanPath.startsWith('/') ? '' : '/'}${cleanPath}`;
@@ -282,7 +287,7 @@ async function initHome() {
       // 1. 如果是完整 URL (http开头)，直接使用
       // 2. 如果是相对路径 (/uploads/xxx)，拼接 HOST_BASE
       // 3. 如果为空，使用默认占位图
-      const imgUrl = getImgUrl(char.image || char.avatar);
+      const imgUrl = getImgUrl(char.image || char.avatar, 'char');
 
       // --- HTML 拼接逻辑 ---
       // 构建 Bootstrap 卡片结构
@@ -326,6 +331,21 @@ async function initHome() {
     grid.innerHTML = `<div class="col-12 text-center text-muted py-5">
       <div class="alert alert-warning">暂无角色或服务连接失败</div>
     </div>`;
+  }
+
+  // --- 自动弹出“致创作者”弹窗 ---
+  // 逻辑：每次会话 (Session) 只弹出一次
+  const hasShownManifesto = sessionStorage.getItem('hasShownManifesto');
+  if (!hasShownManifesto) {
+      const manifestoModalEl = document.getElementById('manifestoModal');
+      if (manifestoModalEl) {
+          // 延迟一点弹出，体验更好
+          setTimeout(() => {
+              const modal = new bootstrap.Modal(manifestoModalEl);
+              modal.show();
+              sessionStorage.setItem('hasShownManifesto', 'true');
+          }, 800);
+      }
   }
 }
 
@@ -484,7 +504,7 @@ window.likeChar = likeChar; // 暴露给全局
 
         // 恢复图片预览
         if (char.image) {
-          document.querySelector('#charAvatarPreview').src = getImgUrl(char.image);
+          document.querySelector('#charAvatarPreview').src = getImgUrl(char.image, 'char');
         }
 
         // 恢复 Tags
@@ -937,7 +957,7 @@ async function initDetail() {
     // 2. 添加加载失败时的金色占位图
     const imgEl = document.querySelector('#avatar');
     imgEl.className = 'rounded avatar-frame'; // 应用新样式类
-    imgEl.src = getImgUrl(oc.image);
+    imgEl.src = getImgUrl(oc.image, 'char');
     imgEl.onerror = function() {
       // 金色调默认占位图 (使用 Placehold.co)
       this.src = 'https://placehold.co/400/f0e68c/ffffff?text=Image+N/A';
@@ -1418,7 +1438,7 @@ async function initDetail() {
             const u = res.user;
             if (userNicknameEl) userNicknameEl.textContent = u.nickname || '未设置昵称';
             if (userNameEl) userNameEl.textContent = `@${u.username}`;
-            if (userAvatarEl) userAvatarEl.src = getImgUrl(u.avatar);
+            if (userAvatarEl) userAvatarEl.src = getImgUrl(u.avatar, 'avatar');
         }
     } catch (e) {
         console.error('Load Profile Failed:', e);
@@ -1686,7 +1706,7 @@ async function initDetail() {
       // 渲染参与角色头像
       if (story.participants && story.participants.length > 0) {
         charListEl.innerHTML = story.participants.map(char => {
-            const img = getImgUrl(char.image);
+            const img = getImgUrl(char.image, 'char');
             return `<img src="${img}" class="char-avatar-small" title="${char.name}" alt="${char.name}">`;
         }).join('');
       }

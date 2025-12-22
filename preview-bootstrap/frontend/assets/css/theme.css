@@ -457,3 +457,50 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
   background: rgba(184, 134, 11, 0.6) !important;
   box-shadow: 0 0 15px rgba(184, 134, 11, 0.4);
 }
+
+/* 致创作者的一封信 - 视觉样式 */ 
+.creator-card { 
+    background: linear-gradient(135deg, #ffffff 0%, #fdfbf7 100%); 
+    border: 1px solid rgba(184, 134, 11, 0.2); 
+    border-radius: 12px; 
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05); 
+    position: relative; 
+    line-height: 1.8; 
+} 
+
+.letter-title { 
+    font-family: "Noto Serif SC", serif; 
+    color: #8a6d3b; 
+    font-weight: 700; 
+    letter-spacing: 2px; 
+} 
+
+.seal-icon { 
+    font-size: 2rem; 
+    color: #b8860b; 
+    text-shadow: 0 0 10px rgba(184, 134, 11, 0.3); 
+} 
+
+.value-item { 
+    margin: 2rem 0; 
+    padding-left: 1.5rem; 
+    border-left: 2px solid #e0c38c; 
+} 
+
+.value-item h5 { 
+    color: #b8860b; 
+    font-size: 1.1rem; 
+    font-weight: 600; 
+} 
+
+.letter-content p { 
+    color: #5a5a5a; 
+    font-size: 1rem; 
+} 
+
+/* 移动端适配 */ 
+@media (max-width: 768px) { 
+    .creator-card { 
+        padding: 2rem 1.5rem !important; 
+    } 
+}

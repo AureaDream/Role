@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/user');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+const path = require('path');
 
 // 注册接口
 router.post('/register', async (req, res) => {
@@ -108,7 +110,23 @@ router.put('/profile', authenticateToken, upload.single('avatar'), async (req, r
     if (!user) return res.status(404).json({ success: false, msg: '用户不存在' });
 
     if (nickname) user.nickname = nickname;
-    if (req.file) user.avatar = req.file.filename;
+    if (req.file) {
+      const oldAvatar = user.avatar;
+      user.avatar = req.file.filename;
+
+      // 删除旧头像 (仅当旧头像存在且不是 URL 时)
+      if (oldAvatar && !oldAvatar.startsWith('http')) {
+        const oldPath = path.join(__dirname, '../public/image', oldAvatar);
+        if (fs.existsSync(oldPath)) {
+          try {
+            fs.unlinkSync(oldPath);
+            console.log(`Deleted old avatar: ${oldPath}`);
+          } catch (e) {
+            console.error(`Failed to delete old avatar: ${e.message}`);
+          }
+        }
+      }
+    }
 
     await user.save();
     

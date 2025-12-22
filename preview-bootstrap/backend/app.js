@@ -54,11 +54,13 @@ app.use('/api', (req, res) => {
   res.status(404).json({ success: false, message: `API 接口不存在: ${req.method} ${req.path}` });
 });
 
-// 托管上传的图片 (uploads)
-// 允许通过 /uploads/xxx.jpg 访问 backend/public/uploads 下的文件
-// 注意：新的上传已改为 private_uploads，此路由仅用于兼容旧图片或头像等非敏感资源
-// 若要完全物理隔离，应移除此行或确保 private_uploads 不被托管
+// 托管上传的图片 (uploads - 立绘)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
+// 托管头像图片 (image - 头像)
+// 优先查找 public/image，找不到则回退到 public/uploads (兼容旧数据)
+app.use('/image', express.static(path.join(__dirname, 'public/image')));
+app.use('/image', express.static(path.join(__dirname, 'public/uploads')));
 
 // 托管前端页面 (frontend)
 // 性能优化：在生产环境下开启 maxAge 缓存，减少服务器带宽压力

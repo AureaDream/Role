@@ -872,7 +872,23 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, error: 'You do not have permission to delete this character' });
     }
 
-    // 3. 执行删除
+    // 3. 删除关联图片文件
+    if (char.image && !char.image.startsWith('http')) {
+        const filename = path.basename(char.image);
+        // 立绘主要存储在 public/uploads
+        const filePath = path.join(__dirname, '../public/uploads', filename);
+        
+        if (fs.existsSync(filePath)) {
+            try {
+                fs.unlinkSync(filePath);
+                console.log(`[Delete] Deleted character image: ${filePath}`);
+            } catch (e) {
+                console.error(`[Delete] Failed to delete image file: ${e.message}`);
+            }
+        }
+    }
+
+    // 4. 执行数据库删除
     await char.destroy();
 
     res.json({ success: true, message: '角色删除成功' });

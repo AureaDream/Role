@@ -6,30 +6,36 @@ const multer = require('multer');
 // --- 配置初始化：本地文件存储 ---
 // 定义上传目录：backend/private_uploads (改为私有目录)
 // 物理隔离：确保原图保存在非公开目录，前端只能通过带有水印的接口读取图片。
-const UPLOAD_DIR = path.join(__dirname, '../private_uploads');
-
-// 打印当前物理路径，方便调试
-console.log('当前文件保存物理地址 (Private):', UPLOAD_DIR);
+const UPLOAD_DIRS = {
+  image: path.join(__dirname, '../public/uploads'), // 立绘
+  avatar: path.join(__dirname, '../public/image')   // 头像
+};
 
 // 启动时自动检查并创建上传文件夹
-if (!fs.existsSync(UPLOAD_DIR)) {
-  try {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-    console.log(`✅ 私有上传目录已自动创建: ${UPLOAD_DIR}`);
-  } catch (err) {
-    console.error('❌ 创建上传目录失败:', err);
+Object.values(UPLOAD_DIRS).forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`✅ 上传目录已自动创建: ${dir}`);
+    } catch (err) {
+      console.error('❌ 创建上传目录失败:', err);
+    }
   }
-}
+});
 
 // --- Multer 配置 (DiskStorage) ---
-// 直接将文件保存到磁盘，而不是内存
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    // 动态使用绝对路径
-    cb(null, UPLOAD_DIR);
+    // 根据 fieldname 决定存储目录
+    if (file.fieldname === 'avatar') {
+      cb(null, UPLOAD_DIRS.avatar);
+    } else {
+      // 默认为 image (立绘)
+      cb(null, UPLOAD_DIRS.image);
+    }
   },
   filename: function (req, file, cb) {
-    // 生成唯一文件名: 时间戳 + 随机哈希 + 后缀
+    // 生成唯一文件名
     const hash = crypto.randomBytes(8).toString('hex');
     const ext = path.extname(file.originalname) || '.jpg';
     const uniqueName = `${Date.now()}-${hash}${ext}`;
