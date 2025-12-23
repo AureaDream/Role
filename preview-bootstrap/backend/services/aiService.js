@@ -19,7 +19,7 @@ async function callAI(systemPrompt, userPrompt, options = {}) {
     const result = await axios.post(
       url,
       {
-        model: 'deepseek-chat', // 使用 deepseek-v3 或 deepseek-chat
+        model: 'deepseek-reasoner',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -297,113 +297,7 @@ async function writeStory(chars, scene) {
   }
 }
 
-/**
- * 流式生成互动短剧 (Write Story Stream)
- * @param {Array} chars - 角色列表
- * @param {string} scene - 场景
- * @param {Function} onToken - 接收每个 token 的回调 (text) => void
- * @param {string} username - 创建者用户名
- * @returns {Promise<string>} - 返回完整文本 (用于最终保存)
- */
-async function writeStoryStream(chars, scene, onToken, username) {
-  // 复用 writeStory 中的 Prompt 构建逻辑
-  const charContext = chars.map((c, index) => {
-    const tagsStr = c.tags && c.tags.length > 0 
-      ? c.tags.map(t => `${t.key}: ${t.value}`).join(', ') 
-      : '无特殊标签';
-    return `[角色 ${index + 1}] 姓名: ${c.name} 性格: ${c.personality} Tags: ${tagsStr} 外观: ${c.appearance}`;
-  }).join('\n');
 
-  const systemPrompt = `
-  # Role: 极简主义文学匠人 & 角色心理刻画专家
-
-你是一位文风冷峻、追求“真实质感”的叙事大师。你厌恶华丽辞藻的堆砌，擅长通过极简的笔触勾勒出沉重的人性选择。
-
-## 核心法则：质感叙事
-1. **去形容词化（De-Adjectivize）**：【绝对禁令】严禁连续使用华丽形容词。禁止使用“如冰锥般”、“似星辰般”等陈词滥调的比喻。
-2. **物理感官优先**：描写环境时，请专注于【重力、温度、湿度、具体的声响】。
-   - 错误示例：他感到极致的痛苦。
-   - 正确示例：他觉得胃里像塞进了一把生锈的铁钉，每一次呼吸都带着铁锈味。
-3. **留白艺术**：不要把情绪写满。通过角色的一个“不自然的小动作”或“环境的细微变化”来暗示心理变动。
-4. **拒绝 OOC 与 标签**：严禁出现 MBTI、数值等术语。深入理解 OC 设定，确保其行为是基于逻辑的抉择，而非剧情的傀儡。
-
-## 任务目标
-创作一段 500-800 字的【起承转合】故事片段：
-- **冲突聚焦**：必须围绕一个“让角色感到不适或挣扎”的具体事件展开。
-- **环境渲染**：通过干燥、潮湿、寒冷或某种具体的噪音（如羊皮纸的沙沙声）来构建氛围。
-- **结构**：开篇切入冲突 -> 角色产生生理/心理反弹 -> 做出一个痛苦但符合逻辑的决定 -> 结尾留白。
-
-## 创作环境
-- 严格遵循背景设定。
-- 文风调性：干练、克制、具有电影镜头般的冷峻感。
-
-## 待润色/创作的角色资料：
-[此处插入角色设定数据]
-`;
-
-  const userPrompt = `【场景】${scene}\n【角色】${charContext}\n请开始创作：`;
-
-  const apiKey = process.env.DEEPSEEK_KEY;
-  const url = 'https://api.deepseek.com/chat/completions';
-
-  try {
-    const response = await axios.post(url, {
-      model: 'deepseek-chat',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      stream: true, // 开启流式
-      temperature: 1.3
-    }, {
-      headers: { 
-        'Content-Type': 'application/json', 
-        'Authorization': `Bearer ${apiKey}` 
-      },
-      responseType: 'stream' // Axios 接收流
-    });
-
-    return new Promise((resolve, reject) => {
-      let fullText = '';
-      
-      response.data.on('data', (chunk) => {
-        // chunk 是 Buffer，转为 string
-        const lines = chunk.toString().split('\n').filter(line => line.trim() !== '');
-        
-        for (const line of lines) {
-          if (line === 'data: [DONE]') continue;
-          if (line.startsWith('data: ')) {
-            try {
-              const jsonStr = line.replace('data: ', '');
-              const json = JSON.parse(jsonStr);
-              const content = json.choices[0].delta.content || '';
-              if (content) {
-                fullText += content;
-                if (onToken) onToken(content);
-              }
-            } catch (e) {
-              console.error('JSON Parse Error in Stream:', e);
-            }
-          }
-        }
-      });
-
-      response.data.on('end', () => {
-        // 注入版权声明
-        const copyright = `\n\n©由 ${username || '流金梦坊用户'} 创作于流金梦坊，未经许可禁止转载`;
-        fullText += copyright;
-        if (onToken) onToken(copyright);
-        
-        resolve(fullText);
-    });
-      response.data.on('error', (err) => reject(err));
-    });
-
-  } catch (error) {
-    console.error('Stream Error:', error);
-    throw error;
-  }
-}
 
 /**
  * 故事头脑风暴 (Brainstorm Story Options)
@@ -529,24 +423,44 @@ async function writeStoryStart(chars, selectedPath, keywords, storyTone, storyPe
       return `[角色 ${index + 1}] 姓名: ${c.name} 性格: ${c.personality} Tags: ${tagsStr} 外观: ${c.appearance}`;
     }).join('\n');
   
+    // 构造复合文风：基础要求 + 用户自定义
+    const finalTone = `模仿江南式的温柔叙事[不要过度模仿，只需要模仿其句子结构和情感表达]，句子具有呼吸感，不要写成动作指令集${storyTone ? '、' + storyTone : ''}`;
+
     const systemPrompt = `
   # Role: 互动小说架构师
 
-你是一位擅长“极简主义”和“电影感镜头”的叙事大师。你需要为角色创作一段具有强烈参与感的故事前半段。
+  你是一位擅长“电影感镜头”的叙事大师。你需要为角色创作一段故事前半段。
+  你追求的是一种“有骨头、有血肉”的叙事风格。文字要像电影镜头，既有特写，也有流动的逻辑。
 
-## 创作逻辑：物理介入
-1. **感官起手**：不要描写心情，先描写【重力、温度、噪音或气味】。例如：不要写“她很紧张”，写“她手心出了点汗，让刀柄下滑了些”。
-2. **去浮华化**：严禁使用“如、像、宛若”等比喻。禁止使用“灵魂、宿命、注脚、星云”等虚浮大词。
-3. **引入分歧点**：基于【${selectedPath}】，快速将剧情推向一个必须做出“非黑即白”抉择的死胡同。
-4. **绝对戛然而止**：必须在角色【伸出手】或【开口说话】的前一秒停笔。不要给出任何心理倾向，把判断权完全留给用户。
+  ## 创作逻辑
+1. **去浮华化**：极少使用“如、像、宛若”等比喻。极少使用“灵魂、宿命、注脚、星云”等虚浮大词。
+2. **引入分歧点**：基于【${selectedPath}】，快速将剧情推向一个必须做出“非黑即白”抉择的死胡同。
+3. **绝对戛然而止**：必须在角色【伸出手】或【开口说话】的前一秒停笔。不要给出任何心理倾向，把判断权完全留给用户。
+4. **逻辑钩连**：每一句话都要接住上一句的“气”。不要突然跳跃到无关的信息，要通过角色的视线或触觉来引导读者。
+5. **长短句交替**：使用短句交代动作（快），使用长句进行环境与心理的渗透（慢）。
+6. **拒绝电报文**：保持语言的自然流动。允许使用必要的连接词（因为、所以、然而、于是），不要为了省字数而破坏中文的语感。
+7. 描写节制：环境描写需精简必要信息，删除不影响氛围或情节的冗余定语。比喻仅在使用能强化角色主观感受时保留，否则直接陈述事实。
+8. 感官主观化：外部环境描写应过渡到角色的直接感官体验。视觉、触觉等描写应服务于角色当下的心理或生理状态，避免纯客观的细节堆砌。
+  ## 写作要求
+  1. **环境先行（Atmosphere First）**：
+     - **首段必须包含环境描写**。用光影、天气、气味或声音来烘托氛围。
+  2. **心理与语言（Psychology & Dialogue）**：
+     - 允许并鼓励描写角色的**内心活动**和**语言**。
+     - 可以加入简短有力的对话或独白，增强感染力。
 
-## 文本约束
-- **文风**：干练、具有呼吸感${storyTone ? '、' + storyTone : ''}。
+  ## 创作底线
+  1. 【强制】减少形容词使用。每段话必须只保留一个“的”字，不要有过多的无意义浮夸描述，不要去过多形容和塑造后续文段不会再出现的事物。
+  2. 写到冲突最高点直接截断，末尾不留任何废话。
+    绝对禁止出现：(请选择...)、(他会怎么做？)、[抉择时刻] 等。
+  3. **引入分歧点**：基于【${selectedPath}】，快速将剧情推向一个必须做出“非黑即白”抉择的死胡同。
+
+  ## 文本约束
+  - **文风**：${finalTone}。
   - **背景**：严格遵循【${storyPeriod || '原设背景'}】。
-- **格式**：
-  - 标题：{故事标题}
-  - 正文：400-600字，段落清晰。
-  - 结尾：用一个具体的动作或反问句结束，引导用户输入反应。
+  - **格式**：
+    - 标题：{故事标题}
+    - 正文：400-600字，段落清晰。
+    - 结尾：停在角色【必须给出回应】的一瞬间。
   `;
   
     const userPrompt = `
@@ -569,23 +483,41 @@ async function writeStoryStart(chars, selectedPath, keywords, storyTone, storyPe
    * @param {Array} chars - 角色列表
    * @param {string} prevContext - 前半段故事文本
    * @param {string} userReaction - 用户的决定/反应
+   * @param {string} storyTone - (可选) 故事文风，用于保持前后一致
    */
-  async function writeStoryContinue(chars, prevContext, userReaction) {
+  async function writeStoryContinue(chars, prevContext, userReaction, storyTone) {
     const systemPrompt = `
-  # Role: 互动小说架构师
+  # Role: 叙事节奏大师
 
 你正在为一部互动小说收尾。用户已经做出了决定：【${userReaction}】。你需要根据这个决定，推演出一个震撼且符合逻辑的结局。
 
-## 创作逻辑：响应与余韵
-1. **因果律**：用户的抉择【${userReaction}】必须产生直接的、具体的物理后果。
-2. **拒绝说教**：不要在结尾总结人生道理。让角色的一个眼神、一件破碎的物件或一段远去的脚步声来结束故事。
-3. **保持质感**：延续前半段的冷峻文风，形容词密度保持在最低水平。
-4. **完整性**：必须是一个真正的结局，给读者的心理预期画上句号。
+## 核心法则：情感余韵
+1. **真实的后果（Real Consequences）**：用户选择了【${userReaction}】。请描写这个动作带来的直接物理反应（疼痛、失重、冷热），以及它对周围人的影响。
+2. **拒绝神棍化（Reject Mysticism）**：尽量不要写虚无缥缈的消失或超现实的化灰，要给到感官冲击。
+3. **人性的闪回（Human Flashbacks）**：在结局时，给角色留一个“非常私人”的念头[和TA的价值观相关]，这才是文字的“人味”所在。
 
-## 文本约束
-- **字数**：300-500字。
-- **禁止内容**：不要复述前半段剧情，直接从抉择后的那一秒开始叙事。
-- **输出格式**：直接输出正文，追求“一击即中”的爆发力。
+## 创作逻辑
+1. **拒绝说教**：不要在结尾总结人生道理。让角色的一个眼神、一件破碎的物件或一段远去的脚步声来结束故事。
+2. **保持质感**：延续前半段的文风，形容词应主要用于描述角色的情感、环境或物理状态，其余地方不要出现太多。
+3. **完整性**：必须是一个真正的结局，给读者的心理预期画上句号。
+4. 描写节制：环境描写需精简必要信息，删除不影响氛围或情节的冗余定语。比喻仅在使用能强化角色主观感受时保留，否则直接陈述事实。
+5. 感官主观化：外部环境描写应过渡到角色的直接感官体验。视觉、触觉等描写应服务于角色当下的心理或生理状态，避免纯客观的细节堆砌。
+  ## 写作要求
+  1. **心理与语言（Psychology & Dialogue）**：
+     - 允许并鼓励描写角色的**内心活动**和**语言**。
+     - 可以加入简短有力的对话或独白，增强感染力。
+  2. **去AI味**：拒绝“命运的齿轮”、“交织”、“救赎”等空洞词汇。用细节说话。
+
+## 创作底线
+1. 【强制】减少形容词使用。每段话必须只保留一个“的”字，不要有过多的无意义浮夸描述，不要去过多形容和塑造后续文段不会再出现的事物。
+2. 【强制】严禁使用医学、生物学或现代科技术语（如神经抑制、放电、逻辑、程序）。
+3. 结局不要写“什么都没有”，要写出角色在做完一切后的感受。
+
+  ## 文本约束
+  - **文风**：模仿江南式的温柔叙事[不要过度模仿，只需要模仿其句子结构和情感表达]，句子具有呼吸感，不要写成动作指令集${storyTone ? '、' + storyTone : ''}。
+  - **字数**：300-500字。
+  - **禁止内容**：不要复述前半段剧情，直接从抉择后的那一秒开始叙事。
+  - **输出格式**：直接输出正文，严禁包含 (抉择后果) 等标题。
   `;
   
     const userPrompt = `
@@ -606,4 +538,4 @@ async function writeStoryStart(chars, selectedPath, keywords, storyTone, storyPe
     }
   }
 
-module.exports = { callAI, buildChar, writeStory, writeStoryStream, polishBio, suggestProfile, brainstormStory, writeStoryV2, writeStoryStart, writeStoryContinue };
+module.exports = { callAI, buildChar, polishBio, suggestProfile, brainstormStory, writeStoryStart, writeStoryContinue };

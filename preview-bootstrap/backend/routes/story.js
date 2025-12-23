@@ -4,7 +4,7 @@ const Story = require('../models/story');
 const Character = require('../models/character');
 const axios = require('axios');
 const jwt = require('jsonwebtoken'); // 引入 JWT
-const { writeStory, writeStoryStream, brainstormStory, writeStoryV2 } = require('../services/aiService');
+const { brainstormStory } = require('../services/aiService');
 const LinkRequest = require('../models/linkrequest');
 const { Op } = require('sequelize');
 
@@ -423,7 +423,7 @@ router.post('/start', authenticateToken, async (req, res) => {
 // 功能：接收前半段和用户决定，生成结局并保存完整故事
 router.post('/continue', authenticateToken, async (req, res) => {
   try {
-    const { prevContext, userReaction, charIdA, charIdB } = req.body;
+    const { prevContext, userReaction, charIdA, charIdB, storyTone } = req.body;
     
     // 重新获取角色以保持上下文一致性 (虽然后半段主要依赖 prevContext，但角色设定依然重要)
     const queryIds = [charIdA];
@@ -432,7 +432,7 @@ router.post('/continue', authenticateToken, async (req, res) => {
 
     // 调用服务生成后半段
     const endingSegment = await require('../services/aiService').writeStoryContinue(
-        chars, prevContext, userReaction
+        chars, prevContext, userReaction, storyTone
     );
 
     // 拼装完整故事
@@ -463,60 +463,6 @@ router.post('/continue', authenticateToken, async (req, res) => {
   }
 });
 
-// --- API: 故事生成 V2 (Generate Story with Path) ---
-// 功能：第二阶段，基于选定走向生成故事
-router.post('/generate-v2', authenticateToken, async (req, res) => {
-  try {
-    const { charIdA, charIdB, keywords, selectedPath } = req.body;
-    
-    if (!selectedPath) {
-      return res.status(400).json({ error: '请选择一个命运走向' });
-    }
 
-    const queryIds = [charIdA];
-    if (charIdB) queryIds.push(charIdB);
-    
-    const chars = await Character.findAll({ where: { id: { [Op.in]: queryIds } } });
-    
-    if (chars.length === 0) return res.status(404).json({ error: 'Character not found' });
-
-    // 调用新的 V2 生成逻辑
-    const storyContent = await writeStoryV2(chars, selectedPath, keywords);
-
-    // 尝试提取标题
-    let title = `${selectedPath.substring(0, 10)}... 的梦境`; // 默认兜底
-    let finalContent = storyContent;
-
-    const titleMatch = storyContent.match(/^(?:标题|Title)[:：]\s*(.+)$/m) || 
-                       storyContent.match(/^《(.+)》$/m) ||
-                       storyContent.match(/^#\s*(.+)$/m);
-
-    if (titleMatch) {
-        title = titleMatch[1].trim();
-        // 从正文中移除标题行，避免重复显示
-        finalContent = storyContent.replace(titleMatch[0], '').trim();
-    }
-
-    // 保存故事
-    const newStory = await Story.create({
-      chars: queryIds,
-      title: title,
-      content: finalContent,
-      prompt: `${keywords} | 走向: ${selectedPath}`,
-      model: 'deepseek-v3'
-    });
-
-    await newStory.addParticipants(queryIds);
-
-    res.json({
-      success: true,
-      story: newStory
-    });
-
-  } catch (error) {
-    console.error('Generate V2 Error:', error);
-    res.status(500).json({ error: '无法编织梦境' });
-  }
-});
 
 module.exports = router;

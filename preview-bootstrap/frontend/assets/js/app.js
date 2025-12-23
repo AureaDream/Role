@@ -745,7 +745,9 @@ window.likeChar = likeChar; // 暴露给全局
             const pre = document.querySelector('#resultPre');
             pre.classList.add('typewriter-cursor');
             
-            await typeWriter(pre, storyContext);
+            // 清洗文本后再渲染
+            const cleanContext = cleanAiText(storyContext);
+            await typeWriter(pre, cleanContext);
             pre.classList.remove('typewriter-cursor');
             
             // 4. 暂停生成，等待用户输入交互反应 (Feature 3 - Pause Logic)
@@ -770,6 +772,8 @@ window.likeChar = likeChar; // 暴露给全局
     // 步骤 2: 继续编织 (后半段)
     continueStoryBtn?.addEventListener('click', async () => {
         const userReaction = userReactionInput.value.trim();
+        const storyTone = document.querySelector('#storyTone').value.trim(); // 获取文风配置
+
         if (!userReaction) return alert('请描述角色的反应，AI 需要指引！');
         
         // 1. UI 状态切换
@@ -777,14 +781,15 @@ window.likeChar = likeChar; // 暴露给全局
         continueStoryBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 结局生成中...';
         
         try {
-            // 2. 请求 /story/continue (发送前半段 + 用户反应)
+            // 2. 请求 /story/continue (发送前半段 + 用户反应 + 文风)
             const res = await request('/story/continue', {
                 method: 'POST',
                 body: { 
                     prevContext: storyContext, 
                     userReaction: userReaction,
                     charIdA: selA.value, // 需要重新传ID以便后端关联
-                    charIdB: selB.value
+                    charIdB: selB.value,
+                    storyTone: storyTone // 传递文风参数，保持前后一致
                 }
             });
             
@@ -794,10 +799,11 @@ window.likeChar = likeChar; // 暴露给全局
             const pre = document.querySelector('#resultPre');
             
             // 添加分割线或换行
-            pre.textContent += '\n\n（你的抉择改变了命运...）\n\n';
+            pre.textContent += '\n\n-\n\n';
             
             pre.classList.add('typewriter-cursor');
-            await typeWriter(pre, endingSegment);
+            // 清洗文本后再渲染
+            await typeWriter(pre, cleanAiText(endingSegment));
             pre.classList.remove('typewriter-cursor');
             
             // 4. 结束流程
@@ -815,6 +821,25 @@ window.likeChar = likeChar; // 暴露给全局
             continueStoryBtn.innerHTML = '<i class="bi bi-play-circle me-1"></i> 继续编织';
         }
     });
+
+    // --- AI 文本清洗工具 ---
+    function cleanAiText(text) {
+        if (!text) return '';
+        let cleaned = text;
+
+        // 1. 移除每行开头的括号说明文字 (如 "(抉择时刻)...")
+        cleaned = cleaned.replace(/^[\(（\[].*?[\)）\]]/gm, '');
+
+        // 2. 移除文末的括号选项 (如 "(他要怎么做？)")
+        // 匹配最后一两个段落如果是纯括号内容则删除
+        cleaned = cleaned.replace(/[\n\r]+[\(（\[].*?[\)）\]]\s*$/s, '');
+
+        // 3. 移除 Title: 前缀 (如果 AI 还是输出了标题行)
+        cleaned = cleaned.replace(/^Title:.*$/im, '');
+
+        // 4. 压缩多余空行
+        return cleaned.trim().replace(/\n{3,}/g, '\n\n');
+    }
 
     // 通用打字机函数
     function typeWriter(element, text) {

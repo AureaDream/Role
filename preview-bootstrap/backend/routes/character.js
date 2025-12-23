@@ -815,6 +815,41 @@ async function processAndSendImage(filePath, res) {
     }
 }
 
+// --- API: 获取角色的故事 (Get Character Stories) ---
+router.get('/:id/stories', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { Story } = require('../models');
+
+    // 使用 Sequelize 的关联查询
+    const char = await Character.findByPk(id, {
+      include: [{
+        model: Story,
+        as: 'stories',
+        include: [{
+            model: Character,
+            as: 'participants',
+            attributes: ['id', 'name', 'image', 'rid']
+        }],
+        through: { attributes: [] } // 不返回中间表数据
+      }]
+    });
+
+    if (!char) {
+      return res.status(404).json({ error: 'Character not found' });
+    }
+
+    // 内存排序 (按创建时间倒序)
+    const stories = char.stories || [];
+    stories.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.json(stories);
+  } catch (error) {
+    console.error('获取角色故事失败:', error);
+    res.status(500).json({ error: '服务器内部错误' });
+  }
+});
+
 // --- API: 获取角色详情 ---
 // 功能：获取单个角色的详细信息
 // 修复：确保 image 字段返回正确的相对路径
