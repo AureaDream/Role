@@ -377,7 +377,7 @@ router.get('/:id', async (req, res) => {
 // 功能：第一阶段，获取 3 个灵感走向
 router.post('/propose-paths', authenticateToken, async (req, res) => {
   try {
-    const { charIdA, charIdB, keywords } = req.body;
+    const { charIdA, charIdB, keywords, storyTone, storyPeriod } = req.body;
     
     // 查询角色
     const queryIds = [charIdA];
@@ -386,11 +386,80 @@ router.post('/propose-paths', authenticateToken, async (req, res) => {
     
     if (chars.length === 0) return res.status(404).json({ error: 'Character not found' });
     
-    const options = await brainstormStory(chars, keywords);
+    // 注入用户偏好 (Tone & Period)
+    const options = await brainstormStory(chars, keywords, storyTone, storyPeriod);
     res.json({ options });
   } catch (error) {
     console.error('Propose Paths Error:', error);
     res.status(500).json({ error: '灵感枯竭中...' });
+  }
+});
+
+// --- API: 故事前半段生成 (Story Start - Phase 1) ---
+// 功能：生成故事的起因和经过，在关键冲突点暂停
+router.post('/start', authenticateToken, async (req, res) => {
+  try {
+    const { charIdA, charIdB, keywords, selectedPath, storyTone, storyPeriod } = req.body;
+    
+    const queryIds = [charIdA];
+    if (charIdB) queryIds.push(charIdB);
+    const chars = await Character.findAll({ where: { id: { [Op.in]: queryIds } } });
+    
+    if (chars.length === 0) return res.status(404).json({ error: 'Character not found' });
+
+    // 调用服务生成前半段
+    const storySegment = await require('../services/aiService').writeStoryStart(
+        chars, selectedPath, keywords, storyTone, storyPeriod
+    );
+
+    res.json({ success: true, storySegment });
+  } catch (error) {
+    console.error('Story Start Error:', error);
+    res.status(500).json({ error: '无法开启梦境...' });
+  }
+});
+
+// --- API: 故事续写 (Story Continue - Phase 2) ---
+// 功能：接收前半段和用户决定，生成结局并保存完整故事
+router.post('/continue', authenticateToken, async (req, res) => {
+  try {
+    const { prevContext, userReaction, charIdA, charIdB } = req.body;
+    
+    // 重新获取角色以保持上下文一致性 (虽然后半段主要依赖 prevContext，但角色设定依然重要)
+    const queryIds = [charIdA];
+    if (charIdB) queryIds.push(charIdB);
+    const chars = await Character.findAll({ where: { id: { [Op.in]: queryIds } } });
+
+    // 调用服务生成后半段
+    const endingSegment = await require('../services/aiService').writeStoryContinue(
+        chars, prevContext, userReaction
+    );
+
+    // 拼装完整故事
+    const fullContent = `${prevContext}\n\n（抉择时刻：${userReaction}）\n\n${endingSegment}`;
+    
+    // 尝试提取标题 (从前半段)
+    let title = '未命名梦境';
+    const titleMatch = prevContext.match(/^(?:标题|Title)[:：]\s*(.+)$/m) || 
+                       prevContext.match(/^《(.+)》$/m) ||
+                       prevContext.match(/^#\s*(.+)$/m);
+    if (titleMatch) title = titleMatch[1].trim();
+
+    // 保存完整故事
+    const newStory = await Story.create({
+      chars: queryIds,
+      title: title,
+      content: fullContent,
+      prompt: `Interactive Story`,
+      model: 'deepseek-v3'
+    });
+    
+    await newStory.addParticipants(queryIds);
+
+    res.json({ success: true, storySegment: endingSegment, storyId: newStory.id });
+  } catch (error) {
+    console.error('Story Continue Error:', error);
+    res.status(500).json({ error: '续写失败...' });
   }
 });
 
@@ -414,11 +483,25 @@ router.post('/generate-v2', authenticateToken, async (req, res) => {
     // 调用新的 V2 生成逻辑
     const storyContent = await writeStoryV2(chars, selectedPath, keywords);
 
+    // 尝试提取标题
+    let title = `${selectedPath.substring(0, 10)}... 的梦境`; // 默认兜底
+    let finalContent = storyContent;
+
+    const titleMatch = storyContent.match(/^(?:标题|Title)[:：]\s*(.+)$/m) || 
+                       storyContent.match(/^《(.+)》$/m) ||
+                       storyContent.match(/^#\s*(.+)$/m);
+
+    if (titleMatch) {
+        title = titleMatch[1].trim();
+        // 从正文中移除标题行，避免重复显示
+        finalContent = storyContent.replace(titleMatch[0], '').trim();
+    }
+
     // 保存故事
     const newStory = await Story.create({
       chars: queryIds,
-      title: `${selectedPath.substring(0, 10)}... 的梦境`,
-      content: storyContent,
+      title: title,
+      content: finalContent,
       prompt: `${keywords} | 走向: ${selectedPath}`,
       model: 'deepseek-v3'
     });

@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="../assets/css/theme.css">
   
   <style>
-    /* --- 1. 背景设计: 深紫色渐变 + 流金特效 --- */
+    /* --- 1. 背景设计: 深紫色渐变 + 流金特效 (已替换为星空特效) --- */
     body {
       margin: 0;
       padding: 0;
@@ -21,34 +21,12 @@
       overflow: hidden;
       font-family: 'Inter', system-ui, sans-serif;
       
-      /* 背景色: 深紫色渐变 (可调整 hex 值改变色调) */
-      background: linear-gradient(135deg, #1a0b2e 0%, #361d5e 100%);
+      /* 背景由 .starry-sky-bg 类接管 */
       position: relative;
     }
 
-    /* 流动金沙特效 (使用伪元素模拟) */
-    body::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      /* 使用径向渐变模拟散落的金粉 */
-      background-image: 
-        radial-gradient(circle at center, rgba(255, 215, 0, 0.1) 0%, transparent 1%),
-        radial-gradient(circle at 20% 80%, rgba(255, 215, 0, 0.05) 0%, transparent 1%);
-      background-size: 100px 100px;
-      opacity: 0.6;
-      animation: sandFlow 60s linear infinite; /* 金沙流动动画 */
-      z-index: 0;
-    }
+    /* (已移除旧的流沙特效) */
 
-    /* 金沙流动关键帧 */
-    @keyframes sandFlow {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
 
     /* --- 2. 登录卡片设计: 磨砂玻璃 + 金边 --- */
     .login-card {
@@ -157,7 +135,7 @@
     }
   </style>
 </head>
-<body data-page="login">
+<body data-page="login" class="starry-sky-bg">
 
   <div class="login-card">
     <div class="brand-title">流金梦坊·织梦者登录</div>

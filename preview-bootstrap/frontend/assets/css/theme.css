@@ -362,13 +362,47 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
   cursor: default;
 }
 
+/* 通用星空背景类 (供 Login/Register/Modal 使用) */
+.starry-sky-bg {
+  background: linear-gradient(135deg, #05070a 0%, #111827 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.starry-sky-bg::before {
+  content: " ";
+  position: absolute;
+  top: 0; left: 0;
+  width: 1px; height: 1px;
+  background: transparent;
+  box-shadow: 257px 1743px #FFF, 1388px 572px #FFF, 1555px 1251px #FFF, 1212px 1308px #FFF, 257px 733px #FFF, 1238px 1041px #FFF, 920px 929px #FFF, 556px 345px #FFF, 791px 1738px #FFF, 1630px 1963px #FFF, 1948px 1424px #FFF, 1917px 38px #FFF, 1954px 570px #FFF, 264px 45px #FFF, 508px 1776px #FFF, 773px 635px #FFF, 116px 273px #FFF, 90px 980px #FFF, 1375px 869px #FFF, 844px 1626px #FFF, 633px 1156px #FFF, 1854px 130px #FFF, 1021px 1220px #FFF, 1775px 529px #FFF, 264px 246px #FFF, 1229px 1702px #FFF, 1864px 993px #FFF, 773px 365px #FFF, 1042px 1472px #FFF, 1018px 478px #FFF, 327px 1359px #FFF, 1577px 1486px #FFF, 936px 1883px #FFF, 1621px 1793px #FFF, 707px 1693px #FFF, 1128px 230px #FFF, 1520px 699px #FFF, 317px 747px #FFF, 739px 380px #FFF, 423px 729px #FFF, 1298px 1930px #FFF, 1045px 142px #FFF, 1072px 1938px #FFF, 604px 809px #FFF, 1818px 931px #FFF, 1464px 407px #FFF, 1514px 475px #FFF, 1014px 935px #FFF, 604px 1435px #FFF, 231px 299px #FFF, 996px 902px #FFF, 963px 1290px #FFF, 1419px 1820px #FFF, 1712px 1732px #FFF, 1882px 783px #FFF, 809px 1890px #FFF, 1565px 977px #FFF, 1679px 1159px #FFF, 1846px 1962px #FFF, 1147px 1230px #FFF, 129px 825px #FFF, 953px 716px #FFF, 1454px 311px #FFF, 666px 1820px #FFF, 1550px 406px #FFF, 90px 1303px #FFF, 1003px 1296px #FFF, 1939px 1588px #FFF, 244px 123px #FFF, 417px 841px #FFF, 1768px 504px #FFF, 1870px 1397px #FFF, 168px 545px #FFF, 1401px 1994px #FFF, 1914px 669px #FFF, 11px 1462px #FFF, 1761px 1011px #FFF, 771px 361px #FFF, 469px 434px #FFF, 1088px 929px #FFF, 530px 869px #FFF, 227px 1466px #FFF, 381px 1744px #FFF, 964px 414px #FFF, 282px 995px #FFF, 373px 1719px #FFF, 1412px 1641px #FFF, 1641px 175px #FFF, 1961px 1849px #FFF, 1884px 856px #FFF, 1943px 1705px #FFF, 87px 307px #FFF, 680px 937px #FFF, 1264px 1443px #FFF, 520px 1911px #FFF, 1017px 984px #FFF, 275px 711px #FFF, 781px 1134px #FFF, 975px 648px #FFF, 25px 1887px #FFF, 1539px 118px #FFF, 315px 619px #FFF, 1125px 1731px #FFF, 1325px 190px #FFF, 684px 446px #FFF, 1550px 765px #FFF;
+  animation: star-float 100s linear infinite;
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.starry-sky-bg::after {
+  content: " ";
+  position: absolute;
+  top: 0; left: 0;
+  width: 2px; height: 2px;
+  background: transparent;
+  box-shadow: 1833px 1820px #FFF, 1291px 1525px #FFF, 946px 801px #FFF, 1427px 602px #FFF, 1857px 1256px #FFF, 1494px 102px #FFF, 965px 341px #FFF, 1436px 33px #FFF, 1811px 1965px #FFF, 1330px 1196px #FFF, 462px 884px #FFF, 1976px 1220px #FFF, 1458px 606px #FFF, 1624px 159px #FFF, 1386px 1379px #FFF, 438px 1240px #FFF, 418px 1504px #FFF, 1775px 613px #FFF, 1727px 205px #FFF, 1209px 1341px #FFF, 785px 906px #FFF, 180px 1087px #FFF, 1400px 1454px #FFF, 1808px 1224px #FFF, 1944px 1635px #FFF, 838px 857px #FFF, 736px 1781px #FFF, 311px 1070px #FFF, 1923px 1662px #FFF, 77px 1924px #FFF, 1466px 1879px #FFF, 1830px 842px #FFF, 750px 459px #FFF, 1426px 167px #FFF, 1996px 885px #FFF, 690px 95px #FFF, 1698px 1377px #FFF, 1432px 836px #FFF, 525px 1860px #FFF, 11px 270px #FFF, 393px 691px #FFF, 1942px 484px #FFF, 223px 1893px #FFF, 1559px 765px #FFF, 10px 194px #FFF, 265px 773px #FFF, 133px 1275px #FFF, 1270px 1039px #FFF, 1649px 684px #FFF, 25px 1615px #FFF;
+  animation: star-float 150s linear infinite;
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* 1. 模态框背景与基础样式 */
 #focusModal .modal-content {
-  background: linear-gradient(135deg, #05070a 0%, #111827 100%); /* 深邃夜空背景 */
+  /* 继承通用星空背景 */
+  background: linear-gradient(135deg, #05070a 0%, #111827 100%);
   border: none;
   box-shadow: none;
   position: relative;
-  overflow: hidden; /* 防止星星溢出 */
+  overflow: hidden; 
 }
 
 /* 2. 星空粒子效果 (Star Particles) */

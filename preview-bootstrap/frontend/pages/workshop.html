@@ -128,6 +128,20 @@
         <div class="card">
           <div class="card-body">
             <div class="row g-3">
+              <!-- 侧重控制栏 (新增) -->
+              <div class="col-12 border-bottom pb-3 mb-2">
+                 <div class="row g-2">
+                   <div class="col-sm-6">
+                     <label class="form-label small text-muted">文风倾向</label>
+                     <input id="storyTone" class="form-control form-control-sm" placeholder="例如 唯美/暗黑/治愈">
+                   </div>
+                   <div class="col-sm-6">
+                     <label class="form-label small text-muted">时代背景</label>
+                     <input id="storyPeriod" class="form-control form-control-sm" placeholder="故事发生在什么时期？">
+                   </div>
+                 </div>
+              </div>
+
               <div class="col-sm-6"><label class="form-label">主角A</label><select id="selectA" class="form-select"></select></div>
               <div class="col-sm-6"><label class="form-label">配角B</label><select id="selectB" class="form-select"><option value="">【无】</option></select></div>
               <div class="col-12"><label class="form-label">关键词</label><input id="keywords" class="form-control" placeholder="例如 雨夜, 失恋"></div>
@@ -147,6 +161,16 @@
                 <div id="optionList" class="d-grid gap-2">
                     <!-- 动态插入选项按钮 -->
                 </div>
+                
+                <!-- 自定义走向卡片 (Feature 1) -->
+                <div class="card mt-3 border-secondary border-opacity-25 bg-light">
+                  <div class="card-body p-3">
+                    <label class="form-label small text-muted mb-1"><i class="bi bi-pencil-square me-1"></i>自定义走向</label>
+                    <textarea id="customPathInput" class="form-control mb-2" rows="2" placeholder="或者，由你来决定命运的轨迹..."></textarea>
+                    <button id="useCustomPathBtn" class="btn btn-sm btn-outline-dark w-100">使用此走向</button>
+                  </div>
+                </div>
+
                 <button id="confirmPathBtn" class="btn btn-primary w-100 mt-3" disabled>
                     <i class="bi bi-check-circle me-1"></i> 确认编织
                 </button>
@@ -155,6 +179,19 @@
             <div id="resultCard" class="parchment-box mt-4 d-none">
               <div class="h5 fw-bold mb-3" style="color:#b39700">❖ 梦境篇章</div>
               <div id="resultPre" class="fade-in-text" style="white-space:pre-wrap; line-height:1.8;"></div>
+              
+              <!-- 交互气泡容器 (Feature 3) -->
+              <div id="interactionZone" class="mt-4 p-3 bg-white rounded shadow-sm border border-warning d-none" style="border-left: 4px solid #FFC107 !important;">
+                 <div class="d-flex align-items-center mb-2 text-warning">
+                   <i class="bi bi-stars me-2"></i>
+                   <span class="fw-bold small">命运的分岔路口</span>
+                 </div>
+                 <p class="mb-2 small text-muted">面对这个局面，如果是你，你会怎么做？</p>
+                 <textarea id="userReaction" class="form-control mb-2" rows="2" placeholder="描述角色的反应或决定..."></textarea>
+                 <button id="continueStoryBtn" class="btn btn-warning w-100 text-dark fw-bold">
+                   <i class="bi bi-play-circle me-1"></i> 继续编织
+                 </button>
+              </div>
             </div>
           </div>
         </div>
