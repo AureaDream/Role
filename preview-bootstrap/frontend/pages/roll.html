@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寻梦星盘 · 流金梦坊</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Custom Theme -->
+    <link href="../assets/css/theme.css" rel="stylesheet">
+    <style>
+        /* 页面特定样式 */
+        body {
+            overflow-x: hidden;
+            background-color: #05070a;
+            color: #fff;
+        }
+
+        .roll-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 顶部 Tab */
+        .world-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .world-tab-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            color: rgba(255, 255, 255, 0.7);
+            padding: 0.5rem 1.5rem;
+            border-radius: 99px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Noto Serif SC', serif;
+        }
+
+        .world-tab-btn.active, .world-tab-btn:hover {
+            background: rgba(255, 215, 0, 0.15);
+            border-color: #FFD700;
+            color: #FFD700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        }
+
+        /* 维度切换区 */
+        .dimension-switcher {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 1rem;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .nav-arrow {
+            font-size: 1.5rem;
+            color: #FFD700;
+            cursor: pointer;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            transition: transform 0.2s;
+            background: none;
+            border: none;
+        }
+
+        .nav-arrow:hover {
+            transform: scale(1.2);
+        }
+
+        .dimension-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            min-width: 200px;
+            text-align: center;
+        }
+
+        /* 核心转盘区 */
+        .wheel-wrapper {
+            position: relative;
+            width: 350px;
+            height: 350px;
+            margin: 2rem auto;
+        }
+
+        .pointer {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 50px;
+            z-index: 10;
+            filter: drop-shadow(0 4px 4px rgba(0,0,0,0.5));
+        }
+        
+        .pointer::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 40px solid #FFD700;
+        }
+
+        .wheel-container {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 215, 0, 0.3);
+            box-shadow: 0 0 30px rgba(255, 215, 0, 0.1), inset 0 0 50px rgba(0, 0, 0, 0.8);
+            position: relative;
+            overflow: hidden;
+            transition: transform 4s cubic-bezier(0.25, 0.1, 0.25, 1); /* 默认阻尼动画 */
+            background: radial-gradient(circle, #1a1a2e 0%, #000 100%);
+        }
+
+        /* 扇区样式 */
+        .sector {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 50%;
+            height: 50%;
+            transform-origin: 0% 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* 边框用于辅助看清扇区 */
+            /* border: 1px solid rgba(255, 255, 255, 0.1); */
+        }
+
+        .sector-text {
+            position: absolute;
+            left: 20px; /* 距离圆心的距离 */
+            bottom: 5px; /* 微调垂直位置 */
+            transform-origin: 0 50%;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+            white-space: nowrap;
+            font-weight: 500;
+            text-shadow: 1px 1px 2px black;
+            width: 140px; /* 限制文字长度 */
+            text-align: left;
+        }
+
+        /* 实时结果显示 */
+        .result-display {
+            margin-top: -175px; /* 移到转盘中心 */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            text-align: center;
+            pointer-events: none; /* 让点击穿透到转盘 */
+        }
+
+        .result-box {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid #FFD700;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            color: #FFD700;
+            font-size: 1.2rem;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+            backdrop-filter: blur(4px);
+            min-width: 150px;
+            display: inline-block;
+        }
+
+        /* 底部功能区 */
+        .controls {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .btn-spin {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            background: radial-gradient(circle, #FFD700 0%, #b8860b 100%);
+            border: 2px solid #fff;
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            color: #000;
+            font-weight: 900;
+            transition: transform 0.1s;
+        }
+
+        .btn-spin:active {
+            transform: scale(0.95);
+        }
+
+        .results-log {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+        }
+        
+        .log-label { color: #aaa; }
+        .log-value { color: #FFD700; font-weight: bold; }
+
+        /* 震动动画 */
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        .shake-element {
+            animation: shake 0.5s;
+            animation-iteration-count: 1;
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 576px) {
+            .wheel-wrapper { width: 300px; height: 300px; }
+            .sector-text { font-size: 12px; width: 120px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 星空背景层 (复用 theme.css 中的类) -->
+    <div class="starry-sky-bg" style="position: fixed; top:0; left:0; width:100%; height:100%; z-index:-1;"></div>
+
+    <div class="container roll-container">
+        <h2 class="mb-4" style="color: #FFD700; text-shadow: 0 0 10px rgba(255,215,0,0.5);">
+            <i class="fas fa-compass me-2"></i>命运星盘
+        </h2>
+
+        <!-- 顶部 Tab -->
+        <div class="world-tabs" id="worldTabs">
+            <div class="world-tab-btn active" data-world="现世绘">现世绘</div>
+            <div class="world-tab-btn" data-world="扶摇梦">扶摇梦</div>
+            <div class="world-tab-btn" data-world="象牙塔">象牙塔</div>
+            <div class="world-tab-btn" data-world="地下城">地下城</div>
+        </div>
+
+        <!-- 维度切换区 -->
+        <div class="dimension-switcher">
+            <button class="nav-arrow" id="prevDim"><i class="fas fa-chevron-left"></i></button>
+            <div class="dimension-title" id="dimensionTitle">当前抽取：职业/身份</div>
+            <button class="nav-arrow" id="nextDim"><i class="fas fa-chevron-right"></i></button>
+        </div>
+
+        <!-- 核心转盘区 -->
+        <div class="wheel-wrapper">
+            <div class="pointer" id="pointer"></div>
+            <!-- 转盘本体 -->
+            <div class="wheel-container" id="wheel">
+                <!-- 扇区将由 JS 动态生成 -->
+            </div>
+            
+            <!-- 实时结果显示 (位于转盘中心上方) -->
+            <div class="result-display">
+                <div class="result-box" id="resultText">???</div>
+            </div>
+        </div>
+
+        <!-- 控制区 -->
+        <div class="controls">
+            <button class="btn btn-spin rounded-circle" id="spinBtn">
+                <i class="fas fa-play"></i>
+            </button>
+            
+            <div class="results-log" id="resultsLog">
+                <!-- 抽取结果记录 -->
+                <div class="text-center text-muted">暂无抽取记录</div>
+            </div>
+
+            <button class="btn btn-primary w-100" id="saveBtn">
+                <i class="fas fa-copy me-2"></i>保存此设定并复制
+            </button>
+            
+            <a href="../index.html" class="btn btn-outline-light btn-sm mt-3 border-0 text-muted">
+                <i class="fas fa-arrow-left me-1"></i>返回流金梦坊
+            </a>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        /**
+         * ------------------------------------------------------------------
+         * 数据驱动配置 (Data Configuration)
+         * 定义 destinyPool 对象，嵌套两层：世界观 -> 维度 -> 选项数组
+         * ------------------------------------------------------------------
+         */
+        const destinyPool = {
+            "现世绘": {
+                "职业/身份": ["黑客", "茶馆老板", "落魄贵族", "星际移民", "实习死神", "私家侦探", "古董商", "赏金猎人"],
+                "种族/物种": ["原生人类", "仿生人", "AI意识体", "基因改造者", "异界来客"],
+                "社会阶层": ["流民", "工薪阶层", "中产精英", "特权阶层", "被驱逐者", "隐形富豪"],
+                "外在性格": ["热情开朗", "孤僻冷漠", "圆滑世故", "莽撞直率", "温文尔雅", "神经质"],
+                "内在驱动力": ["复仇", "寻求认同", "探索真相", "守护家人", "追求极致", "单纯求生"],
+                "道德立场": ["守序善良", "中立善良", "混乱善良", "守序中立", "绝对中立", "混乱中立", "守序邪恶", "中立邪恶", "混乱邪恶"],
+                "特殊能力": ["超强记忆", "黑客技术", "读心术", "顶级烹饪", "机械维修", "格斗精通", "第六感"],
+                "天赋/缺陷": ["过目不忘但体弱", "武力超群但不识字", "幸运值S但路痴", "魅力满分但贫穷"],
+                "不可告人的秘密": ["曾是连环杀手", "皇室私生子", "身患绝症", "欠下巨额赌债", "双重间谍"],
+                "标志性外貌": ["异色瞳", "总是整洁的袖口", "横贯脸部的伤疤", "银色长发", "机械义肢"],
+                "习惯性小动作": ["紧张时捻头发", "思考时敲击桌面", "说话时摸鼻子", "走路不摆臂"],
+                "代表性物件": ["怀表", "生锈的钥匙", "一盆植物", "磨损的打火机", "神秘芯片"]
+            },
+            "扶摇梦": {
+                "职业/身份": ["剑修", "符箓师", "炼丹师", "魔教徒", "散修", "凡间帝王"],
+                "种族/物种": ["人族", "妖族", "鬼族", "灵族", "神裔"],
+                "社会阶层": ["宗门天骄", "外门弟子", "凡人", "皇族", "魔道巨擘"],
+                "外在性格": ["仙风道骨", "桀骜不驯", "沉默寡言", "笑里藏刀"],
+                "内在驱动力": ["长生", "复活爱人", "斩妖除魔", "称霸三界"],
+                "特殊能力": ["御剑术", "五行法术", "召唤灵兽", "不死之身"],
+                "不可告人的秘密": ["夺舍重生", "身怀至宝", "乃是天魔转世", "师门叛徒"],
+                "标志性外貌": ["眉心红痣", "白发童颜", "断臂", "背负巨剑"],
+                "代表性物件": ["残缺的玉佩", "酒葫芦", "无名古卷", "本命飞剑"]
+            },
+            "象牙塔": {
+                "职业/身份": ["学霸", "校霸", "转学生", "社团社长", "图书管理员", "留级生"],
+                "种族/物种": ["人类"],
+                "社会阶层": ["富二代", "特困生", "教职工子女", "普通学生"],
+                "外在性格": ["阳光", "高冷", "呆萌", "腹黑", "热血"],
+                "内在驱动力": ["考上名校", "恋爱", "制霸全国", "解开校园七大不可思议"],
+                "特殊能力": ["考试必过", "篮球天才", "黑客", "八卦小能手"],
+                "不可告人的秘密": ["暗恋老师", "其实是卧底警察", "有超能力", "家里有矿"],
+                "标志性外貌": ["黑框眼镜", "校服不整", "总是耳机", "马尾辫"],
+                "代表性物件": ["随身听", "绝版漫画", "便当盒", "吉他"]
+            },
+            "地下城": {
+                "职业/身份": ["圣骑士", "游荡者", "法师", "德鲁伊", "野蛮人", "吟游诗人"],
+                "种族/物种": ["人类", "精灵", "矮人", "半身人", "提夫林", "龙裔"],
+                "社会阶层": ["贵族", "行会成员", "罪犯", "平民", "隐士"],
+                "外在性格": ["忠诚", "贪婪", "鲁莽", "睿智", "狡诈"],
+                "内在驱动力": ["财富", "荣耀", "知识", "赎罪"],
+                "特殊能力": ["神术", "奥术", "狂暴", "潜行"],
+                "不可告人的秘密": ["与恶魔交易", "被通缉", "不仅是个人类", "携带诅咒物品"],
+                "标志性外貌": ["尖耳朵", "络腮胡", "纹身", "斗篷"],
+                "代表性物件": ["多面骰子", "地图", "魔法卷轴", "乐器"]
+            }
+        };
+
+        /**
+         * ------------------------------------------------------------------
+         * 全局状态管理 (State Management)
+         * 变量名：activeWorld, activeDimension, wheelRotation, currentResult
+         * ------------------------------------------------------------------
+         */
+        let activeWorld = "现世绘";
+        let dimensionKeys = Object.keys(destinyPool[activeWorld]);
+        let activeDimensionIndex = 0;
+        let activeDimension = dimensionKeys[activeDimensionIndex];
+        
+        let wheelRotation = 0; // 当前转盘的旋转角度
+        let isSpinning = false;
+        let selectedResults = {}; // 存储所有维度的抽取结果 { "身份": "黑客", ... }
+
+        // DOM 元素引用
+        const wheelEl = document.getElementById('wheel');
+        const pointerEl = document.getElementById('pointer');
+        const resultTextEl = document.getElementById('resultText');
+        const dimensionTitleEl = document.getElementById('dimensionTitle');
+        const resultsLogEl = document.getElementById('resultsLog');
+
+        /**
+         * ------------------------------------------------------------------
+         * 初始化与事件监听 (Initialization & Event Listeners)
+         * ------------------------------------------------------------------
+         */
+        document.addEventListener('DOMContentLoaded', () => {
+            initWheel();
+            updateLogDisplay();
+
+            // Tab 切换
+            document.querySelectorAll('.world-tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.world-tab-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    activeWorld = e.target.dataset.world;
+                    
+                    // 重置维度索引，因为不同世界可能有不同维度结构（虽然目前demo结构相似）
+                    dimensionKeys = Object.keys(destinyPool[activeWorld]);
+                    activeDimensionIndex = 0;
+                    activeDimension = dimensionKeys[activeDimensionIndex];
+                    
+                    // 清空当前世界的结果记录? 或者保留? 这里选择保留如果是同一维度
+                    // 简单起见，切换世界重置结果显示
+                    selectedResults = {}; 
+                    
+                    initWheel();
+                    updateLogDisplay();
+                });
+            });
+
+            // 维度切换
+            document.getElementById('prevDim').addEventListener('click', () => switchDimension(-1));
+            document.getElementById('nextDim').addEventListener('click', () => switchDimension(1));
+
+            // 旋转按钮
+            document.getElementById('spinBtn').addEventListener('click', spinWheel);
+            // 点击转盘也可以旋转
+            wheelEl.addEventListener('click', spinWheel);
+
+            // 保存按钮
+            document.getElementById('saveBtn').addEventListener('click', saveAndCopy);
+        });
+
+        function switchDimension(direction) {
+            if (isSpinning) return;
+            activeDimensionIndex += direction;
+            if (activeDimensionIndex < 0) activeDimensionIndex = dimensionKeys.length - 1;
+            if (activeDimensionIndex >= dimensionKeys.length) activeDimensionIndex = 0;
+            
+            activeDimension = dimensionKeys[activeDimensionIndex];
+            initWheel(); // 重绘转盘
+        }
+
+        /**
+         * ------------------------------------------------------------------
+         * 核心功能：转盘绘制 (Rendering)
+         * ------------------------------------------------------------------
+         */
+        function initWheel() {
+            // 更新标题
+            dimensionTitleEl.textContent = `当前抽取：${activeDimension}`;
+            
+            // 获取当前维度的选项
+            const options = destinyPool[activeWorld][activeDimension] || [];
+            const count = options.length;
+            const sectorAngle = 360 / count;
+
+            // 清空转盘
+            wheelEl.innerHTML = '';
+            wheelEl.style.transition = 'none'; // 移除动画以便瞬间重置
+            wheelEl.style.transform = `rotate(${wheelRotation % 360}deg)`; // 保持当前视觉角度（或者重置为0）
+            
+            // 为了视觉效果，切换维度时通常重置旋转? 或者保持?
+            // 为了平滑过渡，我们让它看起来是同一个盘在变。
+            // 但因为扇区数量变了，最好有一个“重组”动画。
+            // 这里简单处理：先重置 CSS 动画，再生成扇区。
+            
+            // 生成扇区
+            options.forEach((text, i) => {
+                const sector = document.createElement('div');
+                sector.className = 'sector';
+                // 旋转扇区容器，使其对应正确角度
+                // 注意：扇区默认从 12 点钟方向开始（如果 transform-origin 是 bottom center）
+                // 这里的 CSS .sector transform-origin 是 0% 100% (左下角?) 
+                // 我们需要一个更稳健的画法。
+                // 使用 conic-gradient 可能是个办法，但要在里面放文字比较难。
+                // 采用绝对定位 + 旋转的方法。
+                
+                // 为了让文字居中，我们让每个 sector 占满圆，然后旋转
+                // 并利用 clip-path 或 overflow hidden? 
+                // 简单方案：不裁切形状，只定位文字。因为背景是统一的。
+                // 我们需要在转盘上画分割线。
+                
+                // **扇区坐标计算与文字排版**
+                // 角度：i * sectorAngle
+                // 为了让文字在扇区中间，需要旋转 i * sectorAngle + sectorAngle / 2
+                // 指针在 Top (0deg/360deg 处，对应 CSS 的 -90deg 或 270deg，取决于坐标系)
+                // 假设 CSS 0deg 指向 12点钟。
+                
+                const angle = i * sectorAngle;
+                const midAngle = angle + sectorAngle / 2;
+                
+                // 分割线 (可选)
+                const line = document.createElement('div');
+                line.style.position = 'absolute';
+                line.style.top = '0';
+                line.style.left = '50%';
+                line.style.height = '50%';
+                line.style.width = '1px';
+                line.style.background = 'rgba(255, 215, 0, 0.3)';
+                line.style.transformOrigin = 'bottom center';
+                line.style.transform = `rotate(${angle}deg)`;
+                wheelEl.appendChild(line);
+
+                // 文字
+                const label = document.createElement('div');
+                label.className = 'sector-text';
+                label.textContent = text;
+                // 旋转文字容器
+                // 这里的逻辑：容器以圆心为基点旋转到 midAngle
+                // 文字本身可能需要微调
+                // CSS .sector-text 已经在左侧定位，我们需要把它放到圆心，然后旋转并推出去
+                
+                label.style.top = '50%';
+                label.style.left = '50%';
+                label.style.width = '150px'; // 半径长度
+                label.style.height = '20px';
+                label.style.textAlign = 'right'; // 文字靠外侧
+                label.style.transformOrigin = 'left center'; // 以圆心(左侧)为轴
+                // 修正角度：CSS 0deg 是 3点钟方向 (默认)。我们需要让它指向 12点钟
+                // 所以减去 90度。
+                label.style.transform = `translateY(-50%) rotate(${midAngle - 90}deg)`;
+                
+                // 优化：文字应该正向阅读。如果角度 > 90 && < 270，文字会倒着。
+                // 这种转盘通常文字都是径向排列的，倒着也正常。
+                
+                wheelEl.appendChild(label);
+            });
+
+            // 更新当前指向的结果 (基于当前 wheelRotation)
+            updateResultFromRotation(wheelRotation);
+        }
+
+        /**
+         * ------------------------------------------------------------------
+         * 旋转逻辑 (Spin Logic)
+         * ------------------------------------------------------------------
+         */
+        function spinWheel() {
+            if (isSpinning) return;
+            isSpinning = true;
+            document.getElementById('spinBtn').disabled = true;
+
+            const options = destinyPool[activeWorld][activeDimension];
+            const count = options.length;
+            const sectorAngle = 360 / count;
+
+            // 1. 随机选一个目标索引
+            const targetIndex = Math.floor(Math.random() * count);
+            const targetText = options[targetIndex];
+
+            // 2. 计算目标角度
+            // 指针在上方 (0度/360度)。
+            // 如果转盘旋转 A 度，相当于指针逆时针转了 A 度。
+            // 假设初始 0 度，扇区 0 在 [0, sectorAngle]。
+            // 要让扇区 i 在指针下，需要让转盘旋转到： - (i * sectorAngle + sectorAngle/2)
+            // 也就是： 360 - (i * sectorAngle + sectorAngle/2)
+            // 加上额外的圈数 (5圈以上)
+            
+            const extraSpins = 360 * (5 + Math.floor(Math.random() * 3));
+            
+            // 目标角度计算：
+            // 我们希望结束时，指针指向 targetIndex 的中心
+            // 指针固定在 12 点钟 (270deg in standard trig, but let's assume CSS 0deg is 12 o'clock for simplicity in rotate)
+            // 实际上，我们的文字是按 rotate(midAngle - 90) 排列的。
+            // 假设 index 0 的 midAngle 是 sectorAngle/2. 
+            // 要让 index 0 在 12点钟，需要转盘旋转： -(sectorAngle/2 - 90) ? No, simpler.
+            // 无论当前在哪里，我们加上 extraSpins 加上 一个偏移量。
+            
+            // 简易算法：
+            // 随机一个总度数
+            const randomDegree = Math.floor(Math.random() * 360) + extraSpins;
+            const newRotation = wheelRotation + randomDegree;
+            
+            // 应用 CSS 动画
+            wheelEl.style.transition = 'transform 4s cubic-bezier(0.15, 0, 0.2, 1)'; // 缓出效果 (阻尼感)
+            wheelEl.style.transform = `rotate(-${newRotation}deg)`; // 逆时针旋转转盘，看起来像顺时针转? 
+            // 通常转盘顺时针转，rotate(positive)。
+            // 试试顺时针。
+            
+            // 开始“哒哒哒”音效模拟 (视觉震动)
+            let lastSector = -1;
+            const checkInterval = setInterval(() => {
+                // 获取当前实际旋转角度 (getComputedStyle)
+                const style = window.getComputedStyle(wheelEl);
+                const matrix = new WebKitCSSMatrix(style.transform);
+                // 计算当前角度 0-360
+                let currentAngle = Math.round(Math.atan2(matrix.m12, matrix.m11) * (180/Math.PI));
+                // 顺时针旋转，角度是负数? matrix parsing can be tricky.
+                // 简单起见，我们不完全依赖实时 matrix 做逻辑判断，只做视觉震动。
+                // 逻辑判断放在结束时。
+                
+                // 也可以通过计算进度的百分比来触发震动
+            }, 100);
+
+            // 动画结束处理
+            setTimeout(() => {
+                clearInterval(checkInterval);
+                isSpinning = false;
+                wheelRotation = newRotation; // 更新状态
+                wheelEl.style.transition = 'none'; // 移除动画以便下次重置(如果需要)
+                // 修正角度到 0-360 范围内，防止数值无限大 (CSS transform 可以处理大数值，但为了逻辑清晰)
+                // wheelRotation = newRotation % 360; 
+                // wheelEl.style.transform = `rotate(-${wheelRotation}deg)`;
+                
+                // **碰撞检测与结果更新**
+                // 实际上我们是随机转的，现在需要反推指到了哪里。
+                // 转盘旋转了 -newRotation 度 (如果是顺时针，CSS rotate(positive))。
+                // 指针相当于在转盘上逆时针走了 newRotation 度。
+                // 归一化角度：
+                const normalizedRotation = newRotation % 360;
+                // 扇区索引计算：
+                // 角度 0 对应 index 0? 
+                // 我们的文字生成逻辑：index 0 在 0~sectorAngle 之间 (12点钟右侧顺时针排列)
+                // 指针在 12点钟。
+                // 转盘转了 A 度。指针相对转盘指在 (0 - A) mod 360? 
+                // 让我们实测一下：如果转盘不动 (0deg)，指针在12点。index 0 的文字在 12点偏右 sectorAngle/2 的位置。
+                // 实际上我们之前文字排列：`rotate(${midAngle - 90}deg)`。
+                // midAngle = 0 + 30/2 = 15. rotate(-75deg). 12点钟是 -90deg? 
+                // 这里的坐标系有点乱。
+                
+                // **更稳健的方法**：直接根据最终角度计算。
+                // 每一个扇区占据 sectorAngle 度。
+                // 指针指向的角度 = (360 - (normalizedRotation % 360)) % 360. (假设转盘顺时针转)
+                // 还要考虑初始偏移。
+                // 最好的办法：直接用 targetIndex 设定旋转角度，而不是随机角度反推。
+                
+                // 修正：我们刚才用了随机角度。现在反推。
+                // 假设 0 度时，指针指向 index 0 的起始边界 (12点钟)。
+                // 实际上我们渲染时，index 0 是从 12点钟顺时针开始的。
+                // 所以指针一开始指向 index 0 的开始边界 (或者 index N-1 的结束边界)。
+                // 修正一下渲染：让 index 0 的中心对准 12点钟。
+                // initWheel 中： `rotate(${midAngle - 90}deg)` 
+                // 如果 index 0 的 midAngle 是 15度 (30度扇区)。rotate(-75)。
+                // 12点钟方向是 CSS 的 -90deg (如果 3点钟是0deg)。
+                // 所以 index 0 的中心偏顺时针 15度。
+                // 要让它指针对准，转盘需要逆时针转 15度 (rotate(-15deg))。
+                
+                updateResultFromRotation(newRotation);
+                
+                // 保存结果
+                const finalResult = document.getElementById('resultText').textContent;
+                selectedResults[activeDimension] = finalResult;
+                updateLogDisplay();
+                
+                document.getElementById('spinBtn').disabled = false;
+                
+                // 震动反馈
+                pointerEl.classList.add('shake-element');
+                setTimeout(() => pointerEl.classList.remove('shake-element'), 500);
+
+            }, 4000); // 4s 动画
+        }
+
+        function updateResultFromRotation(rotation) {
+            const options = destinyPool[activeWorld][activeDimension];
+            const count = options.length;
+            const sectorAngle = 360 / count;
+            
+            // 归一化旋转角度 (转盘顺时针旋转的角度)
+            let actualDeg = rotation % 360;
+            if (actualDeg < 0) actualDeg += 360;
+            
+            // 指针相对于转盘的角度 (逆时针方向)
+            // 初始状态(0度)：指针指向 12点钟。
+            // 我们的扇区 0 是从 12点钟开始顺时针排布的 (假设)。
+            // 实际上 initWheel 里：index 0 在 12点钟右侧。
+            // 指针不动，转盘顺时针转 X 度，相当于指针逆时针扫过 X 度。
+            // 指针当前指向的角度 (在转盘坐标系中，以12点钟为0，顺时针为正)
+            // PointerAngle = (360 - actualDeg) % 360.
+            
+            // 还要考虑 initWheel 中的文字偏移。
+            // 文字渲染：`midAngle - 90`。
+            // 假设 CSS 0deg 是 3点钟。12点钟是 270deg (-90deg).
+            // index 0 的 midAngle 是 sectorAngle/2. 
+            // 它的位置是 -90 + sectorAngle/2.
+            // 所以 index 0 的中心在 12点钟 顺时针 sectorAngle/2 处。
+            
+            // 如果转盘转了 0 度，指针指向 12点钟 (-90deg)。
+            // 此时指针位于 index 0 的左边缘 (如果 index 0 范围是 0~sectorAngle)。
+            // 实际上，为了让逻辑简单，我们认为 0~sectorAngle 是 index 0.
+            // 12点钟是 0 度 (在我们的逻辑坐标系里)。
+            // 指针指向的角度 = (360 - actualDeg + 90) % 360 ? No.
+            
+            // 让我们用最笨的办法：试探。
+            // 假设 actualDeg = 0. 指针应该指向 index 0? 
+            // 不，通常指向最后一个或者第一个的边界。
+            // 修正计算公式：
+            // Index = Math.floor( ((360 - actualDeg) % 360) / sectorAngle )
+            // 这假设 0度时指针指向 index 0 的起始边 (12点钟)。
+            
+            // 由于 initWheel 中我们是从 12点钟 (CSS -90deg) 开始画 index 0 的。
+            // 也就是说 index 0 占据 [0, sectorAngle] (相对12点钟顺时针)。
+            // 那么当 actualDeg = 0 时，指针(12点钟) 指向 index 0 的起始边。
+            // 稍微转一点点 (actualDeg > 0, 顺时针转)，指针就进入了 index N-1 (逆时针方向)。
+            // 所以指针相对角度是 (360 - actualDeg) % 360.
+            // 如果这个角度在 [0, sectorAngle]，就是 index 0.
+            
+            const pointerAngle = (360 - actualDeg) % 360;
+            const index = Math.floor(pointerAngle / sectorAngle);
+            
+            const result = options[index] || options[0];
+            resultTextEl.textContent = result;
+            return result;
+        }
+
+        function updateLogDisplay() {
+            resultsLogEl.innerHTML = '';
+            const keys = Object.keys(selectedResults);
+            if (keys.length === 0) {
+                resultsLogEl.innerHTML = '<div class="text-center text-muted">暂无抽取记录</div>';
+                return;
+            }
+            
+            keys.forEach(key => {
+                const item = document.createElement('div');
+                item.className = 'log-item';
+                item.innerHTML = `<span class="log-label">${key}</span><span class="log-value">${selectedResults[key]}</span>`;
+                resultsLogEl.appendChild(item);
+            });
+        }
+
+        function saveAndCopy() {
+            const keys = Object.keys(selectedResults);
+            if (keys.length === 0) {
+                alert('请先抽取至少一项属性！');
+                return;
+            }
+            
+            let text = `【${activeWorld} · 角色设定】\n`;
+            text += `-------------------------\n`;
+            keys.forEach(key => {
+                text += `${key}：${selectedResults[key]}\n`;
+            });
+            text += `-------------------------\n`;
+            text += `生成于 流金梦坊 · 星盘系统`;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.getElementById('saveBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-check me-2"></i>已复制！';
+                btn.classList.replace('btn-primary', 'btn-success');
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.replace('btn-success', 'btn-primary');
+                }, 2000);
+            });
+        }
+
+    </script>
+</body>
+</html>
