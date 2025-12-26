@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>寻梦星盘 · 流金梦坊</title>
+    <title>占卜室 · 流金梦坊</title>
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
@@ -94,7 +94,7 @@
             position: relative;
             width: 350px;
             height: 350px;
-            margin: 2rem auto;
+            margin: 5rem auto 2rem;
         }
 
         .pointer {
@@ -162,14 +162,14 @@
 
         /* 实时结果显示 */
         .result-display {
-            margin-top: -175px; /* 移到转盘中心 */
+            margin-top: -235px;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             z-index: 5;
             text-align: center;
-            pointer-events: none; /* 让点击穿透到转盘 */
+            pointer-events: none;
         }
 
         .result-box {
@@ -236,25 +236,7 @@
         .log-label { color: #aaa; }
         .log-value { color: #FFD700; font-weight: bold; }
 
-        /* 震动动画 */
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-1px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(3px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(1px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
 
-        .shake-element {
-            animation: shake 0.5s;
-            animation-iteration-count: 1;
-        }
 
         /* 移动端适配 */
         @media (max-width: 576px) {
@@ -264,13 +246,28 @@
     </style>
 </head>
 <body>
+  <nav class="navbar navbar-expand-lg bg-white border-bottom">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="../index.html">流金梦坊</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="../index.html">大厅</a></li>
+          <li class="nav-item"><a class="nav-link" href="workshop.html">织梦所</a></li>
+          <li class="nav-item"><a class="nav-link active" href="roll.html">占卜室</a></li>
+          <li class="nav-item"><a class="nav-link" href="profile.html">卧室</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="flowing-gold-line"></div>
 
     <!-- 星空背景层 (复用 theme.css 中的类) -->
     <div class="starry-sky-bg" style="position: fixed; top:0; left:0; width:100%; height:100%; z-index:-1;"></div>
 
     <div class="container roll-container">
         <h2 class="mb-4" style="color: #FFD700; text-shadow: 0 0 10px rgba(255,215,0,0.5);">
-            <i class="fas fa-compass me-2"></i>命运星盘
+            <i class="fas fa-compass me-2"></i>寻梦星盘
         </h2>
 
         <!-- 顶部 Tab -->
@@ -317,9 +314,7 @@
                 <i class="fas fa-copy me-2"></i>保存此设定并复制
             </button>
             
-            <a href="../index.html" class="btn btn-outline-light btn-sm mt-3 border-0 text-muted">
-                <i class="fas fa-arrow-left me-1"></i>返回流金梦坊
-            </a>
+
         </div>
     </div>
 
@@ -556,117 +551,66 @@
         function spinWheel() {
             if (isSpinning) return;
             isSpinning = true;
-            document.getElementById('spinBtn').disabled = true;
+            const spinBtn = document.getElementById('spinBtn');
+            spinBtn.disabled = true;
 
             const options = destinyPool[activeWorld][activeDimension];
             const count = options.length;
             const sectorAngle = 360 / count;
 
-            // 1. 随机选一个目标索引
             const targetIndex = Math.floor(Math.random() * count);
-            const targetText = options[targetIndex];
 
-            // 2. 计算目标角度
-            // 指针在上方 (0度/360度)。
-            // 如果转盘旋转 A 度，相当于指针逆时针转了 A 度。
-            // 假设初始 0 度，扇区 0 在 [0, sectorAngle]。
-            // 要让扇区 i 在指针下，需要让转盘旋转到： - (i * sectorAngle + sectorAngle/2)
-            // 也就是： 360 - (i * sectorAngle + sectorAngle/2)
-            // 加上额外的圈数 (5圈以上)
-            
-            const extraSpins = 360 * (5 + Math.floor(Math.random() * 3));
-            
-            // 目标角度计算：
-            // 我们希望结束时，指针指向 targetIndex 的中心
-            // 指针固定在 12 点钟 (270deg in standard trig, but let's assume CSS 0deg is 12 o'clock for simplicity in rotate)
-            // 实际上，我们的文字是按 rotate(midAngle - 90) 排列的。
-            // 假设 index 0 的 midAngle 是 sectorAngle/2. 
-            // 要让 index 0 在 12点钟，需要转盘旋转： -(sectorAngle/2 - 90) ? No, simpler.
-            // 无论当前在哪里，我们加上 extraSpins 加上 一个偏移量。
-            
-            // 简易算法：
-            // 随机一个总度数
-            const randomDegree = Math.floor(Math.random() * 360) + extraSpins;
-            const newRotation = wheelRotation + randomDegree;
-            
-            // 应用 CSS 动画
-            wheelEl.style.transition = 'transform 4s cubic-bezier(0.15, 0, 0.2, 1)'; // 缓出效果 (阻尼感)
-            wheelEl.style.transform = `rotate(-${newRotation}deg)`; // 逆时针旋转转盘，看起来像顺时针转? 
-            // 通常转盘顺时针转，rotate(positive)。
-            // 试试顺时针。
-            
-            // 开始“哒哒哒”音效模拟 (视觉震动)
-            let lastSector = -1;
-            const checkInterval = setInterval(() => {
-                // 获取当前实际旋转角度 (getComputedStyle)
-                const style = window.getComputedStyle(wheelEl);
-                const matrix = new WebKitCSSMatrix(style.transform);
-                // 计算当前角度 0-360
-                let currentAngle = Math.round(Math.atan2(matrix.m12, matrix.m11) * (180/Math.PI));
-                // 顺时针旋转，角度是负数? matrix parsing can be tricky.
-                // 简单起见，我们不完全依赖实时 matrix 做逻辑判断，只做视觉震动。
-                // 逻辑判断放在结束时。
-                
-                // 也可以通过计算进度的百分比来触发震动
-            }, 100);
+            const extraSpins = 360 * (4 + Math.floor(Math.random() * 3));
 
-            // 动画结束处理
+            let currentNorm = wheelRotation % 360;
+            if (currentNorm < 0) currentNorm += 360;
+
+            const targetMidAngle = targetIndex * sectorAngle + sectorAngle / 2;
+            let targetNorm = (-targetMidAngle) % 360;
+            if (targetNorm < 0) targetNorm += 360;
+
+            let delta = targetNorm - currentNorm;
+            if (delta < 0) delta += 360;
+
+            const totalRotation = extraSpins + delta;
+            const startRotation = wheelRotation;
+            const endRotation = wheelRotation + totalRotation;
+
+            wheelRotation = endRotation;
+
+            wheelEl.style.transition = 'transform 4s cubic-bezier(0.15, 0, 0.2, 1)';
+            wheelEl.style.transform = `rotate(${endRotation}deg)`;
+
+            const startTime = performance.now();
+            const duration = 4000;
+
+            function updateDuringSpin(now) {
+                if (!isSpinning) return;
+
+                const elapsed = now - startTime;
+                const t = Math.min(elapsed / duration, 1);
+                const currentRotation = startRotation + totalRotation * t;
+
+                updateResultFromRotation(currentRotation);
+
+                if (t < 1 && isSpinning) {
+                    requestAnimationFrame(updateDuringSpin);
+                }
+            }
+
+            requestAnimationFrame(updateDuringSpin);
+
             setTimeout(() => {
-                clearInterval(checkInterval);
                 isSpinning = false;
-                wheelRotation = newRotation; // 更新状态
-                wheelEl.style.transition = 'none'; // 移除动画以便下次重置(如果需要)
-                // 修正角度到 0-360 范围内，防止数值无限大 (CSS transform 可以处理大数值，但为了逻辑清晰)
-                // wheelRotation = newRotation % 360; 
-                // wheelEl.style.transform = `rotate(-${wheelRotation}deg)`;
-                
-                // **碰撞检测与结果更新**
-                // 实际上我们是随机转的，现在需要反推指到了哪里。
-                // 转盘旋转了 -newRotation 度 (如果是顺时针，CSS rotate(positive))。
-                // 指针相当于在转盘上逆时针走了 newRotation 度。
-                // 归一化角度：
-                const normalizedRotation = newRotation % 360;
-                // 扇区索引计算：
-                // 角度 0 对应 index 0? 
-                // 我们的文字生成逻辑：index 0 在 0~sectorAngle 之间 (12点钟右侧顺时针排列)
-                // 指针在 12点钟。
-                // 转盘转了 A 度。指针相对转盘指在 (0 - A) mod 360? 
-                // 让我们实测一下：如果转盘不动 (0deg)，指针在12点。index 0 的文字在 12点偏右 sectorAngle/2 的位置。
-                // 实际上我们之前文字排列：`rotate(${midAngle - 90}deg)`。
-                // midAngle = 0 + 30/2 = 15. rotate(-75deg). 12点钟是 -90deg? 
-                // 这里的坐标系有点乱。
-                
-                // **更稳健的方法**：直接根据最终角度计算。
-                // 每一个扇区占据 sectorAngle 度。
-                // 指针指向的角度 = (360 - (normalizedRotation % 360)) % 360. (假设转盘顺时针转)
-                // 还要考虑初始偏移。
-                // 最好的办法：直接用 targetIndex 设定旋转角度，而不是随机角度反推。
-                
-                // 修正：我们刚才用了随机角度。现在反推。
-                // 假设 0 度时，指针指向 index 0 的起始边界 (12点钟)。
-                // 实际上我们渲染时，index 0 是从 12点钟顺时针开始的。
-                // 所以指针一开始指向 index 0 的开始边界 (或者 index N-1 的结束边界)。
-                // 修正一下渲染：让 index 0 的中心对准 12点钟。
-                // initWheel 中： `rotate(${midAngle - 90}deg)` 
-                // 如果 index 0 的 midAngle 是 15度 (30度扇区)。rotate(-75)。
-                // 12点钟方向是 CSS 的 -90deg (如果 3点钟是0deg)。
-                // 所以 index 0 的中心偏顺时针 15度。
-                // 要让它指针对准，转盘需要逆时针转 15度 (rotate(-15deg))。
-                
-                updateResultFromRotation(newRotation);
-                
-                // 保存结果
-                const finalResult = document.getElementById('resultText').textContent;
+                wheelEl.style.transition = 'none';
+
+                const finalResult = options[targetIndex];
+                resultTextEl.textContent = finalResult;
                 selectedResults[activeDimension] = finalResult;
                 updateLogDisplay();
-                
-                document.getElementById('spinBtn').disabled = false;
-                
-                // 震动反馈
-                pointerEl.classList.add('shake-element');
-                setTimeout(() => pointerEl.classList.remove('shake-element'), 500);
 
-            }, 4000); // 4s 动画
+                spinBtn.disabled = false;
+            }, duration);
         }
 
         function updateResultFromRotation(rotation) {
@@ -674,48 +618,12 @@
             const count = options.length;
             const sectorAngle = 360 / count;
             
-            // 归一化旋转角度 (转盘顺时针旋转的角度)
-            let actualDeg = rotation % 360;
-            if (actualDeg < 0) actualDeg += 360;
+            let angle = (-rotation) % 360;
+            if (angle < 0) angle += 360;
             
-            // 指针相对于转盘的角度 (逆时针方向)
-            // 初始状态(0度)：指针指向 12点钟。
-            // 我们的扇区 0 是从 12点钟开始顺时针排布的 (假设)。
-            // 实际上 initWheel 里：index 0 在 12点钟右侧。
-            // 指针不动，转盘顺时针转 X 度，相当于指针逆时针扫过 X 度。
-            // 指针当前指向的角度 (在转盘坐标系中，以12点钟为0，顺时针为正)
-            // PointerAngle = (360 - actualDeg) % 360.
-            
-            // 还要考虑 initWheel 中的文字偏移。
-            // 文字渲染：`midAngle - 90`。
-            // 假设 CSS 0deg 是 3点钟。12点钟是 270deg (-90deg).
-            // index 0 的 midAngle 是 sectorAngle/2. 
-            // 它的位置是 -90 + sectorAngle/2.
-            // 所以 index 0 的中心在 12点钟 顺时针 sectorAngle/2 处。
-            
-            // 如果转盘转了 0 度，指针指向 12点钟 (-90deg)。
-            // 此时指针位于 index 0 的左边缘 (如果 index 0 范围是 0~sectorAngle)。
-            // 实际上，为了让逻辑简单，我们认为 0~sectorAngle 是 index 0.
-            // 12点钟是 0 度 (在我们的逻辑坐标系里)。
-            // 指针指向的角度 = (360 - actualDeg + 90) % 360 ? No.
-            
-            // 让我们用最笨的办法：试探。
-            // 假设 actualDeg = 0. 指针应该指向 index 0? 
-            // 不，通常指向最后一个或者第一个的边界。
-            // 修正计算公式：
-            // Index = Math.floor( ((360 - actualDeg) % 360) / sectorAngle )
-            // 这假设 0度时指针指向 index 0 的起始边 (12点钟)。
-            
-            // 由于 initWheel 中我们是从 12点钟 (CSS -90deg) 开始画 index 0 的。
-            // 也就是说 index 0 占据 [0, sectorAngle] (相对12点钟顺时针)。
-            // 那么当 actualDeg = 0 时，指针(12点钟) 指向 index 0 的起始边。
-            // 稍微转一点点 (actualDeg > 0, 顺时针转)，指针就进入了 index N-1 (逆时针方向)。
-            // 所以指针相对角度是 (360 - actualDeg) % 360.
-            // 如果这个角度在 [0, sectorAngle]，就是 index 0.
-            
-            const pointerAngle = (360 - actualDeg) % 360;
-            const index = Math.floor(pointerAngle / sectorAngle);
-            
+            let index = Math.floor(angle / sectorAngle);
+            if (index < 0) index = 0;
+            if (index >= count) index = count - 1;
             const result = options[index] || options[0];
             resultTextEl.textContent = result;
             return result;

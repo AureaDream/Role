@@ -147,11 +147,6 @@ async function request(endpoint, options = {}) {
         errorMsg += `: ${errorText.slice(0, 50)}...`;
       }
 
-      // Token 失效自动清除
-      if (res.status === 401 || res.status === 403) {
-        localStorage.removeItem('token');
-      }
-
       throw new Error(errorMsg);
     }
 
