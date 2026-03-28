@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>反馈建议 · 流金梦坊</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="../assets/css/theme.css">
+</head>
+<body data-page="suggest">
+  <nav class="navbar navbar-expand-lg bg-white border-bottom">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="../index.html">流金梦坊</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="../index.html">大厅</a></li>
+          <li class="nav-item"><a class="nav-link" href="workshop.html">织梦所</a></li>
+          <li class="nav-item"><a class="nav-link" href="roll.html">占卜室</a></li>
+          <li class="nav-item"><a class="nav-link" href="profile.html">卧室</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="flowing-gold-line"></div>
+
+  <main class="container my-4">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-3" style="background: linear-gradient(135deg, #FFD700 0%, #FFF8E1 100%);">
+          <div class="card-body">
+            <h1 class="h4 fw-bold mb-2 text-dark">流金梦坊 · 回音壁</h1>
+            <p class="mb-0 text-muted small">在这里，你可以匿名留下对梦坊的建议或吐槽，所有来访者都能看到这些声音。</p>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <span class="fw-bold text-dark">匿名反馈墙</span>
+            <button id="refreshBtn" class="btn btn-sm btn-outline-secondary rounded-pill">
+              <i class="bi bi-arrow-clockwise me-1"></i>刷新
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <ul id="feedbackList" class="list-group list-group-flush">
+            </ul>
+            <div id="emptyState" class="text-center text-muted small py-4 d-none">
+              暂时还没有任何留言，右下角点击加号，成为第一个开口的人吧。
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <button id="feedbackFab" class="btn btn-warning rounded-circle shadow-lg d-flex align-items-center justify-content-center"
+          style="position: fixed; bottom: 2rem; right: 2rem; width: 60px; height: 60px; z-index: 1050;">
+    <i class="bi bi-plus fs-2"></i>
+  </button>
+
+  <div class="modal fade" id="feedbackModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-0 pb-1">
+          <h5 class="modal-title fw-bold">匿名反馈</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small text-muted">反馈类型</label>
+            <select id="feedbackCategory" class="form-select">
+              <option value="general">综合建议</option>
+              <option value="ux">使用体验</option>
+              <option value="feature">功能需求</option>
+              <option value="bug">Bug 反馈</option>
+            </select>
+          </div>
+          <div class="mb-0">
+            <label class="form-label small text-muted">想对流金梦坊说的话</label>
+            <textarea id="feedbackContent" class="form-control" rows="4" placeholder="可以是好点子、吐槽、期望，或是单纯的心情碎片。"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-1">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">先算了</button>
+          <button type="button" id="submitFeedbackBtn" class="btn btn-warning text-dark fw-bold rounded-pill">
+            <span class="submit-text">投递到梦坊</span>
+            <span class="submit-loading d-none">
+              <span class="spinner-border spinner-border-sm me-1"></span>投递中...
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="../assets/js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      var feedbackList = document.getElementById('feedbackList');
+      var emptyState = document.getElementById('emptyState');
+      var refreshBtn = document.getElementById('refreshBtn');
+      var fab = document.getElementById('feedbackFab');
+      var modalEl = document.getElementById('feedbackModal');
+      var feedbackCategory = document.getElementById('feedbackCategory');
+      var feedbackContent = document.getElementById('feedbackContent');
+      var submitBtn = document.getElementById('submitFeedbackBtn');
+      var submitText = submitBtn.querySelector('.submit-text');
+      var submitLoading = submitBtn.querySelector('.submit-loading');
+      var feedbackModal = new bootstrap.Modal(modalEl);
+
+      function formatTime(iso) {
+        if (!iso) return '';
+        try {
+          var d = new Date(iso);
+          return d.toLocaleString('zh-CN', { hour12: false });
+        } catch (e) {
+          return iso;
+        }
+      }
+
+      function renderList(list) {
+        feedbackList.innerHTML = '';
+        if (!list || list.length === 0) {
+          emptyState.classList.remove('d-none');
+          return;
+        }
+        emptyState.classList.add('d-none');
+
+        list.forEach(function (item) {
+          var badgeClass = 'bg-secondary';
+          if (item.category === 'ux') badgeClass = 'bg-primary';
+          else if (item.category === 'feature') badgeClass = 'bg-success';
+          else if (item.category === 'bug') badgeClass = 'bg-danger';
+
+          var li = document.createElement('li');
+          li.className = 'list-group-item';
+          li.innerHTML =
+            '<div class="d-flex justify-content-between align-items-start mb-1">' +
+              '<div class="d-flex align-items-center gap-2">' +
+                '<span class="badge ' + badgeClass + ' bg-gradient">' + (item.categoryLabel || '匿名') + '</span>' +
+              '</div>' +
+              '<small class="text-muted">' + formatTime(item.createdAt) + '</small>' +
+            '</div>' +
+            '<div class="text-dark" style="white-space: pre-wrap; line-height: 1.6;">' +
+              (item.content || '') +
+            '</div>';
+          feedbackList.appendChild(li);
+        });
+      }
+
+      function loadFeedbacks() {
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>刷新中';
+        request('/feedback/all')
+          .then(function (res) {
+            var list = res.data || res;
+            list = Array.isArray(list) ? list : [];
+            list.forEach(function (item) {
+              if (!item.categoryLabel) {
+                if (item.category === 'ux') item.categoryLabel = '体验';
+                else if (item.category === 'feature') item.categoryLabel = '功能';
+                else if (item.category === 'bug') item.categoryLabel = 'Bug';
+                else item.categoryLabel = '匿名';
+              }
+            });
+            renderList(list);
+          })
+          .catch(function (e) {
+            console.error('加载反馈失败', e);
+          })
+          .finally(function () {
+            refreshBtn.disabled = false;
+            refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>刷新';
+          });
+      }
+
+      function submitFeedback() {
+        var content = feedbackContent.value.trim();
+        var category = feedbackCategory.value;
+        if (!content) {
+          alert('请先写下你想说的话。');
+          return;
+        }
+        submitBtn.disabled = true;
+        submitText.classList.add('d-none');
+        submitLoading.classList.remove('d-none');
+
+        request('/feedback/submit', {
+          method: 'POST',
+          body: { content: content, category: category }
+        })
+          .then(function () {
+            feedbackContent.value = '';
+            feedbackCategory.value = 'general';
+            feedbackModal.hide();
+            loadFeedbacks();
+          })
+          .catch(function (e) {
+            console.error('提交失败', e);
+            alert(e.message || '提交失败，请稍后再试。');
+          })
+          .finally(function () {
+            submitBtn.disabled = false;
+            submitText.classList.remove('d-none');
+            submitLoading.classList.add('d-none');
+          });
+      }
+
+      fab.addEventListener('click', function () {
+        feedbackModal.show();
+      });
+
+      submitBtn.addEventListener('click', submitFeedback);
+      refreshBtn.addEventListener('click', loadFeedbacks);
+
+      loadFeedbacks();
+    });
+  </script>
+</body>
+</html>
+

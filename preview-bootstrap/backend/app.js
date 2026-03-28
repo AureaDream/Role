@@ -48,7 +48,11 @@ app.use('/api/story', storyRoutes);
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
-// --- 4.5 404 容错处理 ---
+// 4.5 反馈建议路由 (Feedback)
+const feedbackRoutes = require('./routes/feedback');
+app.use('/api/feedback', feedbackRoutes);
+
+// --- 4.6 404 容错处理 ---
 // 捕获所有未匹配的 /api 请求，返回 JSON 而不是 HTML
 app.use('/api', (req, res) => {
   res.status(404).json({ success: false, message: `API 接口不存在: ${req.method} ${req.path}` });

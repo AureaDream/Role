@@ -194,7 +194,7 @@ async function suggestProfile(name) {
   要求：
   1. 返回合法的 JSON 对象，不要包含 markdown 代码块。
   2. JSON 格式：{"race": "...", "job": "...", "personality": "..."}。
-  3. 风格要与姓名契合（例如西方名对应奇幻种族，东方名对应仙侠或现代设定）。`;
+  3. 风格要与姓名契合。`;
   
   const userPrompt = `角色姓名：${name}`;
   
@@ -243,7 +243,7 @@ async function brainstormStory(chars, keywords, storyTone = '', storyPeriod = ''
   const systemPrompt = `
 # Role: 顶尖剧本催化师 (Plot Catalyst)
 
-你的任务是根据提供的 OC 设定，精准切割出 3 个足以改变角色一生的【命运转折点】。
+你的任务是根据提供的 OC 设定，精准切割出 3 个角色人生中的【转折点】。
 
 ## 叙事策略：制造两难
 1. **精准打击（Precision Strike）**：识别角色的核心欲望（Want）与核心恐惧（Fear）。冲突必须发生在“他最想要的”与“他最怕的”之间。
@@ -251,8 +251,8 @@ async function brainstormStory(chars, keywords, storyTone = '', storyPeriod = ''
 3. **钩子叙事（The Hook）**：每个选项必须是一个“未完待续”的瞬间，让用户看到后立即想点击“生成全文”。
 
 ## 风格定义
-- 【糖/治愈】：并非简单的发糖，而是“在高墙缝隙中生长出的花”，强调孤单中的理解与破茧成蝶的勇气。
-- 【刀/致郁】：极致的宿命论。角色必须面临“二选一且双输”的电车难题，展现遗憾的美学。
+- 【糖/治愈】：一些平静的日常系小剧场，或是角色和角色间可爱的互动。
+- 【刀/致郁】：极致的宿命论。角色必须浸泡在悲伤抑郁的氛围中，或是在美好后夺走ta的美好，展现遗憾的美学。
 - 【谜/悬疑】：颠覆性转折。角色发现自己的身份、记忆或周围的至亲是一个巨大的谎言。
 
 ## 严苛约束
@@ -368,7 +368,7 @@ async function writeStoryStart(chars, selectedPath, keywords, storyTone, storyPe
 - **背景**：严格遵循【${storyPeriod || '原设背景'}】。
 - **格式**：
   - 标题：{故事标题}
-  - 正文：400-600字，段落清晰。
+  - 正文：600-900字，段落清晰。
   - 结尾：停在角色【必须给出回应】的一瞬间。
   `;
   
@@ -453,7 +453,7 @@ async function writeStoryStart(chars, selectedPath, keywords, storyTone, storyPe
 
 ## 文本约束
 - **文风**：模仿江南式的温柔叙事[不要过度模仿，只需要模仿其句子结构和情感表达]，句子具有呼吸感，不要写成动作指令集${storyTone ? '、' + storyTone : ''}。
-- **字数**：300-500字。
+- **字数**：500-800字。
 - **禁止内容**：不要复述前半段剧情，直接从抉择后的那一秒开始叙事。
 - **输出格式**：直接输出正文，严禁包含 (抉择后果) 等标题。
   `;

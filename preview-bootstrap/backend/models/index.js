@@ -4,6 +4,7 @@ const Story = require('./story');
 const LinkRequest = require('./linkrequest');
 const Like = require('./like');
 const Comment = require('./comment');
+const Feedback = require('./feedback');
 
 // --- 模型关联 (Associations) ---
 
@@ -82,5 +83,6 @@ module.exports = {
   Story,
   LinkRequest,
   Like,
-  Comment
+  Comment,
+  Feedback
 };

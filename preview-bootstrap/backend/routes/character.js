@@ -243,8 +243,9 @@ router.post('/add', authenticateToken, uploadMiddleware, async (req, res) => {
   try {
     const data = req.body;
     console.log('Creating character for user:', req.user.id);
-    // 1. Token 解析：从鉴权中间件解析出的 user 对象中获取 userId
+    // 1. Token 解析：从鉴权中间件解析出的 user 对象中获取 userId 和显示名
     const userId = req.user.id;
+    const displayName = req.user.nickname || req.user.username || `User${userId}`;
 
     if (!userId) {
       return res.status(400).json({ success: false, error: 'Invalid User ID from token' });
@@ -265,9 +266,8 @@ router.post('/add', authenticateToken, uploadMiddleware, async (req, res) => {
                 
                 // --- 水印合成逻辑 ---
                 // 计算水印位置：右下角
-                // 使用 sharp 创建一个 SVG 文本水印 (简单模拟 Logo/ID)
-                // 也可以加载一个 png logo
-                const watermarkText = `Created by User #${userId}`;
+                // 使用 sharp 创建一个 SVG 文本水印，展示用户昵称或用户名
+                const watermarkText = `Created by ${displayName}`;
                 const svgImage = `
                   <svg width="300" height="100">
                     <style>
@@ -326,6 +326,13 @@ router.post('/add', authenticateToken, uploadMiddleware, async (req, res) => {
     // 生成 RID
     const rid = 'R' + Math.floor(Math.random() * 900000 + 100000); // R + 6位数字
 
+    const creationMode = data.creationMode === 'assisted' ? 'assisted' : 'manual';
+    const history = [{
+      action: 'create',
+      timestamp: new Date(),
+      note: creationMode === 'assisted' ? '使用 AI 润色创作角色设定' : '纯手工创作角色设定'
+    }];
+
     // 使用 Sequelize 将 OC 设定存入 Characters 表
     // 包含姓名、性别、年龄、外貌、背景(description)及自定义标签
     const newChar = await Character.create({
@@ -342,7 +349,9 @@ router.post('/add', authenticateToken, uploadMiddleware, async (req, res) => {
       intro: data.intro, // 简介
       appearance: data.appearance, // 外貌
       personality: data.personality,
-      tags: tags // 存储种族、职业等标签信息
+      tags: tags, // 存储种族、职业等标签信息
+      creationMode,
+      history
     });
 
     res.status(201).json({ success: true, data: newChar });
@@ -366,6 +375,7 @@ router.put('/update/:id', authenticateToken, uploadMiddleware, async (req, res) 
     console.log(`Updating character ${id} for user ${req.user.id}`);
     const data = req.body;
     const userId = req.user.id;
+    const displayName = req.user.nickname || req.user.username || `User${userId}`;
 
     // 1. 查找角色
     const char = await Character.findByPk(id);
@@ -387,7 +397,7 @@ router.put('/update/:id', authenticateToken, uploadMiddleware, async (req, res) 
              try {
                 const inputPath = req.file.path;
                 const outputPath = path.join(path.dirname(inputPath), `wm-${req.file.filename}`);
-                const watermarkText = `Updated by User #${userId}`;
+                const watermarkText = `Updated by ${displayName}`;
                 const svgImage = `<svg width="300" height="100"><style>.title { fill: rgba(255, 255, 255, 0.5); font-size: 24px; font-weight: bold; }</style><text x="50%" y="50%" text-anchor="middle" class="title">${watermarkText}</text></svg>`;
                 const watermarkImg = Buffer.from(svgImage);
 
@@ -429,7 +439,10 @@ router.put('/update/:id', authenticateToken, uploadMiddleware, async (req, res) 
     };
 
     // 更新历史记录
-    if (data.creationMode) updateData.creationMode = data.creationMode;
+    if (data.creationMode) {
+      const newMode = data.creationMode === 'assisted' ? 'assisted' : 'manual';
+      updateData.creationMode = char.creationMode === 'assisted' ? 'assisted' : newMode;
+    }
     
     // 追加历史
     const currentHistory = char.history || [];

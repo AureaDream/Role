@@ -1067,6 +1067,7 @@ window.likeChar = likeChar; // 暴露给全局
     };
 
     aiPolishBtn?.addEventListener('click', async (evtOrInstruction) => {
+      window.hasUsedAI = true;
       const name = document.querySelector('#charName').value;
       const race = document.querySelector('#charRace').value;
       const job = document.querySelector('#charJob').value;
