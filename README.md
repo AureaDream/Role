@@ -27,6 +27,30 @@
 
 ### 1. 准备工作
 确保你拥有 DeepSeek 或其他兼容 LLM 的 API Key。
+并且在根目录中新建.env环境配置文件：
+
+```env
+# --- 基础服务配置 ---
+PORT=3000
+NODE_ENV=development
+
+# --- 数据库配置 (本地/云端 MySQL) ---
+# 如需连接云端数据库，请修改 DB_HOST 为公网 IP
+DB_HOST=
+DB_PORT=
+DB_USER=
+DB_PASS=
+DB_NAME=
+
+# --- AI 服务配置 (DeepSeek) ---
+# 请从 DeepSeek 开发者平台 (https://platform.deepseek.com/) 获取 API Key
+DEEPSEEK_KEY=你的key
+
+# --- 文件存储配置 ---
+# 当前已配置为本地文件存储
+# 图片将保存至: backend/public/uploads
+# 访问路径示例: http://localhost:3000/uploads/xxx.jpg
+```
 
 ### 2. 发起请求
 你可以通过调用我们的推理接口来生成内容。主要参数如下：
