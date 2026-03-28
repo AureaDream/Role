@@ -23,62 +23,41 @@
 
 ---
 
-## 快速上手 (Quick Start)
+## 如何在本地运行 (How to Run)
 
-### 1. 准备工作
-确保你拥有 DeepSeek 或其他兼容 LLM 的 API Key。
-并且在根目录中新建.env环境配置文件：
+如果你下载了本项目的 ZIP 包，按照以下步骤即可在自己的电脑上跑起来：
 
-```env
-# --- 基础服务配置 ---
-PORT=3000
-NODE_ENV=development
+### 1. 环境准备
+*   安装 [Node.js](https://nodejs.org/) (推荐 v16 或更高版本)。
+*   你需要一个 **DeepSeek API Key**。如果没有，请前往 [DeepSeek 开放平台](https://platform.deepseek.com/) 申请。
 
-# --- 数据库配置 (本地/云端 MySQL) ---
-# 如需连接云端数据库，请修改 DB_HOST 为公网 IP
-DB_HOST=
-DB_PORT=
-DB_USER=
-DB_PASS=
-DB_NAME=
+### 2. 解压与安装
+1.  解压下载的 ZIP 文件。
+2.  打开终端（Terminal 或 PowerShell），进入项目目录下的 `preview-bootstrap` 文件夹：
+    ```bash
+    cd preview-bootstrap
+    ```
+3.  安装必要的依赖库：
+    ```bash
+    npm install
+    ```
 
-# --- AI 服务配置 (DeepSeek) ---
-# 请从 DeepSeek 开发者平台 (https://platform.deepseek.com/) 获取 API Key
-DEEPSEEK_KEY=你的key
+### 3. 配置环境变量
+1.  进入 `preview-bootstrap/backend` 目录。
+2.  找到 `.env` 文件（如果没有，请新建一个`.env`文件）。
+3.  使用记事本或编辑器打开 `.env`，修改以下关键项：
+    *   `DEEPSEEK_KEY`: 填入你的 DeepSeek API Key。
+    *   `DB_HOST/USER/PASS`: 如果你使用本地 MySQL，请修改为你的数据库信息（默认为开发环境配置）。
 
-# --- 文件存储配置 ---
-# 当前已配置为本地文件存储
-# 图片将保存至: backend/public/uploads
-# 访问路径示例: http://localhost:3000/uploads/xxx.jpg
+### 4. 启动程序
+回到 `preview-bootstrap` 目录，运行：
+```bash
+npm run dev
 ```
+程序启动后，终端会显示 `✅ [Server] 服务已启动: http://localhost:3000`。
 
-### 2. 发起请求
-你可以通过调用我们的推理接口来生成内容。主要参数如下：
-
-| 参数 | 描述 |
-| :--- | :--- |
-| `task_type` | `oc_creation` (生成人设) 或 `story_generation` (生成故事) |
-| `oc_data` | 角色的 JSON 设定数据（已有信息） |
-| `keywords` | 你的灵感关键词或场景描述 |
-| `style_tag` | 故事风格（如：浪漫、战斗、日常） |
-
-### 3. 代码示例 (Python)
-
-```python
-# 简单的调用逻辑参考
-from your_sdk import OCGenerator
-
-generator = OCGenerator(api_key="your_key")
-
-# 生成一个新角色
-new_oc = generator.create(
-    task_type="oc_creation",
-    keywords="沉默寡言的机械师，喜欢猫",
-    style="赛博朋克"
-)
-
-print(new_oc)
-```
+### 5. 开始使用
+打开浏览器，访问 `http://localhost:3000`，即可进入“流金梦坊”的交互界面。
 
 ---
 
