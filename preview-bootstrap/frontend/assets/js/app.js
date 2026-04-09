@@ -16,10 +16,6 @@
     // 根目录处理 (index.html)
     if (currentPath.endsWith('/') || currentPath.endsWith('index.html') || currentPath === '') {
       loginUrl = 'pages/login.html';
-    } 
-    // 深度子目录处理 (如 /tests/ 文件夹下的页面)
-    else if (currentPath.includes('/tests/')) {
-      loginUrl = '../login.html';
     }
     
     window.location.replace(loginUrl);
