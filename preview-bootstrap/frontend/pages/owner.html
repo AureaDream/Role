@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>坊主资料 · 流金梦坊</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="../assets/css/theme.css">
+  
+  <style>
+    /* --- 博客专属玻璃拟态样式 --- */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 215, 0, 0.15);
+      border-radius: 16px;
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .glass-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 35px rgba(255, 215, 0, 0.15);
+      border-color: rgba(255, 215, 0, 0.3);
+    }
+
+    /* --- 坊主头像特效 --- */
+    .owner-avatar-wrapper {
+      width: 150px;
+      height: 150px;
+      margin: 0 auto;
+      border-radius: 50%;
+      padding: 5px;
+      background: linear-gradient(135deg, #FFD700, #ffb31a);
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
+    }
+    .owner-avatar {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 4px solid #1a0b2e;
+    }
+
+    /* --- 标签与技能条 --- */
+    .skill-badge {
+      background: rgba(255, 215, 0, 0.1);
+      color: #FFD700;
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      padding: 6px 15px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      margin: 4px;
+      display: inline-block;
+    }
+
+    /* --- 博客时间轴 (Timeline) --- */
+    .timeline {
+      position: relative;
+      padding-left: 30px;
+      margin-top: 20px;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 2px;
+      background: linear-gradient(to bottom, #FFD700, rgba(255, 215, 0, 0.1));
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: 2.5rem;
+    }
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -35px;
+      top: 5px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #FFD700;
+      box-shadow: 0 0 10px #FFD700;
+    }
+    .timeline-date {
+      font-size: 0.85rem;
+      color: #FFD700;
+      letter-spacing: 1px;
+      margin-bottom: 0.5rem;
+    }
+    .timeline-content {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      line-height: 1.7;
+    }
+    
+    /* 覆盖导航栏文字颜色以适应星空背景 */
+    .navbar-dark-text .nav-link, .navbar-dark-text .navbar-brand {
+      color: rgba(255, 255, 255, 0.8) !important;
+    }
+    .navbar-dark-text .nav-link.active {
+      color: #FFD700 !important;
+    }
+    .navbar-dark-text .navbar-toggler-icon {
+      filter: invert(1);
+    }
+  </style>
+</head>
+<body data-page="owner" class="starry-sky-bg">
+
+  <!-- 导航栏：此处将背景改为透明以融合星空背景 -->
+  <nav class="navbar navbar-expand-lg bg-transparent border-bottom border-secondary navbar-dark-text">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="../index.html">流金梦坊</a>
+      <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="nav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="../index.html">大厅</a></li>
+          <li class="nav-item d-none"><a class="nav-link" href="pages/workshop.html">织梦所</a></li>
+          <li class="nav-item"><a class="nav-link" href="roll.html">占卜室</a></li>
+          <li class="nav-item"><a class="nav-link" href="profile.html">卧室</a></li>
+          <!-- 新增坊主资料入口，并设为 active -->
+          <li class="nav-item"><a class="nav-link active" href="owner.html">坊主资料</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="flowing-gold-line"></div>
+
+  <main class="container my-5">
+    <div class="row g-4">
+      
+      <!-- 左侧：个人名片栏 -->
+      <div class="col-lg-4">
+        <div class="glass-card p-4 text-center sticky-top" style="top: 20px;">
+          <!-- 头像 -->
+          <div class="owner-avatar-wrapper mb-4">
+            <img src="../assets/img/touxiang.jpg" alt="坊主头像" class="owner-avatar">
+          </div>
+          
+          <h3 class="fw-bold mb-1" style="color: #FFD700; font-family: 'Times New Roman', serif;">Aurea</h3>
+          <p class="text-white-50 small mb-4">流金梦坊 首席架构师 / 织梦者</p>
+          
+          <div class="mb-4 text-start">
+            <h6 class="border-bottom border-secondary pb-2 mb-3 text-white-50"><i class="bi bi-person-lines-fill me-2"></i>关于我</h6>
+            <p class="small text-white-50" style="line-height: 1.8;">
+              欢迎来到我的精神自留地。我是一名热爱代码与原创角色的创作者。建立“流金梦坊”的初衷，是为了给散落在各个维度的 OC 们一个安放灵魂的归所。
+            </p>
+          </div>
+
+          <div class="mb-4 text-start">
+            <h6 class="border-bottom border-secondary pb-2 mb-3 text-white-50"><i class="bi bi-stars me-2"></i>技能印记</h6>
+            <div>
+              <span class="skill-badge">全栈开发</span>
+              <span class="skill-badge">AI重度患者</span>
+              <span class="skill-badge">UI/UX 设计</span>
+              <span class="skill-badge">剧情构架</span>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-center gap-3 mt-4 pt-3 border-top border-secondary">
+            <!-- GitHub 链接：加入了 target="_blank" 确保在新标签页打开，体验更好 -->
+            <a href="https://github.com/1Mengjin" target="_blank" class="text-white-50 fs-5"><i class="bi bi-github"></i></a>
+            <a href="javascript:void(0)" onclick="showAlert('我的联系邮箱：<br><b class=\'text-warning fs-5\'>aureadream@163.com</b>')" class="text-white-50 fs-5"><i class="bi bi-envelope-fill"></i></a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右侧：博客动态 / 坊主手札 -->
+      <div class="col-lg-8">
+        <div class="glass-card p-4 p-md-5">
+          <h4 class="fw-bold mb-4" style="color: #FFD700; border-bottom: 1px solid rgba(255, 215, 0, 0.2); padding-bottom: 15px;">
+            <i class="bi bi-journal-bookmark-fill me-2"></i>坊主手札
+          </h4>
+          
+          <!-- 时间轴博客列表 -->
+          <div class="timeline">
+            
+            <!-- 博客文章 1 -->
+            <div class="timeline-item">
+              <div class="timeline-date">2026年3月29日</div>
+              <div class="timeline-content">
+                <h5 class="fw-bold mb-3 text-white">坊主资料页上线</h5>
+                <p class="text-white-50 mb-0">
+                  今天为系统接入了全新的博客模块。我想要一个地方来记录开发日志和碎碎念——有意见/建议的话欢迎在意见墙提出。另外，我暂时封存了AI润色的功能，在这块领域还需要更多的探索的讨论。
+                </p>
+              </div>
+            </div>
+
+            <!-- 博客文章 2 -->
+            <div class="timeline-item">
+              <div class="timeline-date">2025年12月15日</div>
+              <div class="timeline-content">
+                <h5 class="fw-bold mb-3 text-white">关于 AI 与原创边界的思考</h5>
+                <p class="text-white-50 mb-3">
+                  近期收到了测试人员对于 AI 润色功能的反馈。正如我在《致创作者》信中所说，AI 永远只是一面镜子，真正的灵魂赋予者是执笔的你们。
+                </p>
+                <div class="p-3 rounded" style="background: rgba(255, 215, 0, 0.05); border-left: 3px solid #FFD700;">
+                  <small class="text-white-50">"所有的润色与辅助，其根源皆来自于你原创的OC角色。代码可以生成文字，但生成不了爱。"</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- 博客文章 3 -->
+            <div class="timeline-item">
+              <div class="timeline-date">2025年11月1日</div>
+              <div class="timeline-content">
+                <h5 class="fw-bold mb-3 text-white">流金梦坊 v1.0 正式开启</h5>
+                <p class="text-white-50 mb-0">
+                  经过几个月的爆肝，基础架构终于搭建完毕。大厅、织梦所、占卜室的功能已初步跑通。
+                </p>
+              </div>
+            </div>
+
+          </div>
+          <!-- 时间轴结束 -->
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+  <script src="../assets/js/app.js"></script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 // --- 基础配置 ---
 const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const API_BASE = isLocal ? 'http://localhost:3000/api' : 'http://120.79.120.7:3000/api';
+const API_BASE = '/api';
 
 /**
  * 通用 Fetch 封装

@@ -1,7 +1,35 @@
+// --- 全局登录拦截守卫 (Global Auth Guard) ---
+(function() {
+  const currentPath = window.location.pathname;
+  const token = localStorage.getItem('token');
+  
+  // 1. 定义白名单：增加 'owner.html' 让该页面免登录访问
+  const isWhiteList = 
+    currentPath.includes('login.html') || 
+    currentPath.includes('register.html') || 
+    currentPath.includes('owner.html'); 
+
+  // 2. 如果没有 Token 且不在白名单内，则强制跳转
+  if (!token && !isWhiteList) {
+    let loginUrl = 'login.html'; // 默认同级目录跳转
+    
+    // 根目录处理 (index.html)
+    if (currentPath.endsWith('/') || currentPath.endsWith('index.html') || currentPath === '') {
+      loginUrl = 'pages/login.html';
+    } 
+    // 深度子目录处理 (如 /tests/ 文件夹下的页面)
+    else if (currentPath.includes('/tests/')) {
+      loginUrl = '../login.html';
+    }
+    
+    window.location.replace(loginUrl);
+  }
+})();
+
 // --- 基础配置 ---
 const isLocal = ['localhost', '127.0.0.1', ''].includes(window.location.hostname);
-const API_BASE = isLocal ? 'http://localhost:3000/api' : 'http://120.79.120.7:3000/api';
-const HOST_BASE = isLocal ? 'http://localhost:3000' : 'http://120.79.120.7:3000';
+const API_BASE = '/api';
+const HOST_BASE = '';
 
 // --- 辅助函数：图片路径处理 ---
 function getImgUrl(path, type = 'default') {
@@ -1834,8 +1862,9 @@ async function initDetail() {
                       </div>
 
                       <div class="mt-2 d-flex gap-2">
-                        <button class="btn btn-outline-primary btn-sm flex-fill" onclick="event.stopPropagation(); location.href='workshop.html?edit=${char.id}'">编辑</button>
+                        <button class="btn btn-outline-primary btn-sm flex-fill d-none" onclick="event.stopPropagation(); location.href='workshop.html?edit=${char.id}'">编辑</button>
                         <button class="btn btn-outline-danger btn-sm" onclick="event.stopPropagation(); deleteChar(${char.id})">删除</button>
+                      </div>
                       </div>
                     </div>
                   </div>

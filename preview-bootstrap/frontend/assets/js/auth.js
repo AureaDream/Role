@@ -45,10 +45,8 @@ async function handleAuth(e, type) {
     // 基础 URL 配置 (兼容本地开发与远程部署)
     // 本地环境使用 localhost，线上环境使用指定 IP
     const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-    const endpoint = isLogin ? '/auth/login' : '/auth/register';
-    const targetUrl = isLocal 
-      ? `http://localhost:3000/api${endpoint}` 
-      : `http://120.79.120.7:3000/api${endpoint}`;
+const endpoint = isLogin ? '/auth/login' : '/auth/register';
+const targetUrl = `/api${endpoint}`;
 
     console.log(`📡 发起请求: ${targetUrl}`); // 打印完整 URL
 
